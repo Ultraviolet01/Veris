@@ -58,9 +58,6 @@ Veris/
 ├── mcp/              # Model Context Protocol (MCP) Server for AI agents
 │   ├── src/tools/    # list_datasets, get_quote, purchase, verify_delivery, check_reputation
 │   └── config/       # veris.json dataset registry
-│
-└── docs/             # Technical specifications & developer integration guides
-    └── mcp-integration-guide.md
 ```
 
 ---
