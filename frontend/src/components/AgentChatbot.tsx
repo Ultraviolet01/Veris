@@ -49,6 +49,8 @@ interface ChatMessage {
     priceUsdc: number;
     dataAgeSeconds?: number;
     dataPayload?: DeliveredPayload | Record<string, unknown>;
+    isSimulated?: boolean;
+    realTxHash?: string;
   };
   deliveryData?: {
     datasetName: string;
@@ -232,7 +234,9 @@ export const AgentChatbot: React.FC = () => {
                 executionStatus: "completed",
                 receipt: {
                   jobId: receipt.jobId,
-                  txHash: receipt.txFund,
+                  txHash: receipt.realTxHash || receipt.txFund,
+                  realTxHash: receipt.realTxHash,
+                  isSimulated: receipt.isSimulated,
                   slaSeconds: receipt.freshnessSlaSeconds,
                   priceUsdc: receipt.budgetUsdc,
                   dataAgeSeconds: receipt.dataAgeSeconds,
@@ -493,16 +497,26 @@ export const AgentChatbot: React.FC = () => {
                         <p className="text-[11px] text-zinc-300 leading-snug">
                           Attestation verified fresh within SLA! Data delivered below & seller reputation updated.
                         </p>
-                        {m.receipt.txHash && (
-                          <a
-                            href={`${MONAD_TESTNET_EXPLORER}/tx/${m.receipt.txHash}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-cyan-300 hover:underline font-mono text-[10px] pt-0.5"
-                          >
-                            <span>View MonadScan Tx</span>
-                            <ExternalLink className="w-3 h-3" />
-                          </a>
+                        {m.receipt.realTxHash ? (
+                          <div className="flex items-center justify-between pt-0.5">
+                            <a
+                              href={`${MONAD_TESTNET_EXPLORER}/tx/${m.receipt.realTxHash}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-cyan-300 hover:underline font-mono text-[10px]"
+                            >
+                              <span>View MonadScan On-Chain Tx</span>
+                              <ExternalLink className="w-3 h-3" />
+                            </a>
+                            <span className="text-[9px] text-zinc-400 font-mono">
+                              Auth: ERC-20 Escrow Approval
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5 text-[10px] text-amber-300/90 pt-0.5 font-mono">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                            <span>Demo Sandbox Mode (Zero balance deducted)</span>
+                          </div>
                         )}
 
                         {m.receipt.dataPayload && (

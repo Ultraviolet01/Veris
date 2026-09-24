@@ -52,6 +52,8 @@ export interface JobExecutionReceipt {
   resolvedAt?: string;
   dataAgeSeconds?: number;
   dataPayload?: DeliveredPayload;
+  isSimulated?: boolean;
+  realTxHash?: string;
 }
 
 export function useBuyerFlow() {
@@ -107,7 +109,8 @@ export function useBuyerFlow() {
         // ── Step 1: Approve payment token (USDC) ───────────────────────────
         setStep("approving");
         console.log("[Veris Buyer] Step 1/3: Requesting token approval for ACPCore...");
-        let approveTxHash = "0x" + Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join("");
+        let approveTxHash: string | undefined = undefined;
+        let isSimulated = true;
 
         if (walletClient && walletClient.account) {
           try {
@@ -121,7 +124,8 @@ export function useBuyerFlow() {
                 args: [ADDRESSES.acpCore, budgetWei],
               }),
             });
-            console.log("[Veris Buyer] Token approved. Tx:", approveTxHash);
+            console.log("[Veris Buyer] Real Monad token approval Tx:", approveTxHash);
+            isSimulated = false;
           } catch (txErr: unknown) {
             console.warn("[Veris Buyer] Live approve tx fallback (sandbox/testnet simulation):", txErr);
           }
@@ -130,11 +134,11 @@ export function useBuyerFlow() {
         // ── Step 2: Call ACPCore.createJob(...) ────────────────────────────
         setStep("creating_job");
         console.log("[Veris Buyer] Step 2/3: Creating job on ACPCore with SLA evaluator hook...");
-        let createTxHash = "0x" + Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join("");
+        let createTxHash: string | undefined = undefined;
         const simulatedJobId = String(Math.floor(Date.now() / 1000) % 100000);
         const expiredAt = BigInt(Math.floor(Date.now() / 1000) + 3600); // 1 hr expiry
 
-        if (walletClient && walletClient.account) {
+        if (walletClient && walletClient.account && !isSimulated) {
           try {
             createTxHash = await walletClient.sendTransaction({
               account: walletClient.account,
@@ -144,26 +148,26 @@ export function useBuyerFlow() {
                 abi: ACP_CORE_ABI,
                 functionName: "createJob",
                 args: [
-                  dataset.payoutAddress, // provider
-                  ADDRESSES.slaEvaluator, // evaluator
+                  dataset.payoutAddress,
+                  ADDRESSES.slaEvaluator,
                   expiredAt,
                   `Veris Freshness Query: ${dataset.name}`,
-                  ADDRESSES.slaEvaluator, // hook
+                  ADDRESSES.slaEvaluator,
                 ],
               }),
             });
             console.log("[Veris Buyer] Job created. Tx:", createTxHash);
           } catch (txErr: unknown) {
-            console.warn("[Veris Buyer] Live createJob tx fallback (simulation):", txErr);
+            console.warn("[Veris Buyer] Live createJob fallback (simulation):", txErr);
           }
         }
 
         // ── Step 3: Call ACPCore.fund(...) ─────────────────────────────────
         setStep("funding_job");
         console.log("[Veris Buyer] Step 3/3: Funding escrow job on ACPCore...");
-        let fundTxHash = "0x" + Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join("");
+        let fundTxHash: string | undefined = undefined;
 
-        if (walletClient && walletClient.account) {
+        if (walletClient && walletClient.account && createTxHash) {
           try {
             fundTxHash = await walletClient.sendTransaction({
               account: walletClient.account,
@@ -177,7 +181,7 @@ export function useBuyerFlow() {
             });
             console.log("[Veris Buyer] Job funded. Tx:", fundTxHash);
           } catch (txErr: unknown) {
-            console.warn("[Veris Buyer] Live fund tx fallback (simulation):", txErr);
+            console.warn("[Veris Buyer] Live fund fallback (simulation):", txErr);
           }
         }
 
@@ -190,6 +194,8 @@ export function useBuyerFlow() {
           dataset.freshnessSlaSeconds
         );
 
+        const realTxHash = fundTxHash || createTxHash || approveTxHash;
+
         const initialReceipt: JobExecutionReceipt = {
           jobId: simulatedJobId,
           txApprove: approveTxHash,
@@ -199,6 +205,8 @@ export function useBuyerFlow() {
           datasetName: dataset.name,
           freshnessSlaSeconds: dataset.freshnessSlaSeconds,
           status: "Funded",
+          isSimulated: isSimulated || !fundTxHash,
+          realTxHash,
         };
 
         setReceipt(initialReceipt);
@@ -211,6 +219,9 @@ export function useBuyerFlow() {
           ...initialReceipt,
           status: "SLA Met",
           resolvedAt: new Date().toLocaleTimeString(),
+          dataAgeSeconds: safeAge,
+          dataPayload: deliveredData,
+        };
           dataAgeSeconds: safeAge,
           dataPayload: deliveredData,
         };

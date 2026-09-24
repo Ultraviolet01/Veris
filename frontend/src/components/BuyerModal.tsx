@@ -271,16 +271,26 @@ export const BuyerModal: React.FC<BuyerModalProps> = ({ dataset, onClose }) => {
               <p className="text-zinc-300">
                 Data attestation validated against Monad block timestamp. Data was genuinely fresh (within {receipt.freshnessSlaSeconds}s). Seller received payment; reputation score incremented.
               </p>
-              {receipt.txFund && (
-                <a
-                  href={`${MONAD_TESTNET_EXPLORER}/tx/${receipt.txFund}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1 text-[#a797ff] hover:underline font-mono text-[11px] pt-1"
-                >
-                  <span>View MonadScan Tx</span>
-                  <ExternalLink className="w-3 h-3" />
-                </a>
+              {receipt.realTxHash ? (
+                <div className="flex items-center justify-between pt-1">
+                  <a
+                    href={`${MONAD_TESTNET_EXPLORER}/tx/${receipt.realTxHash}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 text-[#a797ff] hover:underline font-mono text-[11px]"
+                  >
+                    <span>View MonadScan On-Chain Tx</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                  <span className="text-[10px] text-zinc-400 font-mono">
+                    Auth: ERC-20 Escrow Approval
+                  </span>
+                </div>
+              ) : (
+                <div className="text-[11px] text-amber-300 font-mono pt-1 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                  <span>Demo Sandbox Mode (Zero funds deducted)</span>
+                </div>
               )}
             </div>
 
