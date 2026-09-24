@@ -18,6 +18,7 @@ import {
   AlertCircle,
   Zap,
 } from "lucide-react";
+import { DataPayloadViewer } from "./DataPayloadViewer";
 
 interface BuyerModalProps {
   dataset: MarketplaceDataset | null;
@@ -256,29 +257,42 @@ export const BuyerModal: React.FC<BuyerModalProps> = ({ dataset, onClose }) => {
           </div>
         )}
 
-        {/* Completed Receipt Card */}
+        {/* Completed Receipt & Delivered Data Payload Card */}
         {receipt && step === "completed" && (
-          <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4 mb-6 text-xs text-emerald-200 space-y-2">
-            <div className="flex items-center justify-between font-bold text-white text-sm">
-              <span className="flex items-center gap-1.5 text-emerald-400">
-                <CheckCircle2 className="w-4 h-4" />
-                Purchase Complete · SLA Verified Fresh!
-              </span>
-              <span>Order #{receipt.jobId}</span>
+          <div className="space-y-3 mb-6 animate-in fade-in">
+            <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4 text-xs text-emerald-200 space-y-2">
+              <div className="flex items-center justify-between font-bold text-white text-sm">
+                <span className="flex items-center gap-1.5 text-emerald-400">
+                  <CheckCircle2 className="w-4 h-4" />
+                  Purchase Complete · SLA Verified Fresh!
+                </span>
+                <span>Order #{receipt.jobId}</span>
+              </div>
+              <p className="text-zinc-300">
+                Data attestation validated against Monad block timestamp. Data was genuinely fresh (within {receipt.freshnessSlaSeconds}s). Seller received payment; reputation score incremented.
+              </p>
+              {receipt.txFund && (
+                <a
+                  href={`${MONAD_TESTNET_EXPLORER}/tx/${receipt.txFund}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 text-[#a797ff] hover:underline font-mono text-[11px] pt-1"
+                >
+                  <span>View MonadScan Tx</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              )}
             </div>
-            <p className="text-zinc-300">
-              Data attestation validated against Monad block timestamp. Data was genuinely fresh (within {receipt.freshnessSlaSeconds}s). Seller received payment; reputation score incremented.
-            </p>
-            {receipt.txFund && (
-              <a
-                href={`${MONAD_TESTNET_EXPLORER}/tx/${receipt.txFund}`}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1 text-[#a797ff] hover:underline font-mono text-[11px] pt-1"
-              >
-                <span>View MonadScan Tx</span>
-                <ExternalLink className="w-3 h-3" />
-              </a>
+
+            {/* Delivered Data Payload */}
+            {receipt.dataPayload && (
+              <DataPayloadViewer
+                datasetName={dataset.name}
+                payload={receipt.dataPayload}
+                jobId={receipt.jobId}
+                dataAgeSeconds={receipt.dataAgeSeconds}
+                slaSeconds={receipt.freshnessSlaSeconds}
+              />
             )}
           </div>
         )}

@@ -25,6 +25,10 @@ import {
   MONAD_TESTNET_CHAIN_ID,
   type MarketplaceDataset,
 } from "../lib/contracts";
+import {
+  generateDeliveredPayload,
+  type DeliveredPayload,
+} from "../lib/dataPayloads";
 
 export type BuyerStep =
   | "idle"
@@ -46,6 +50,8 @@ export interface JobExecutionReceipt {
   freshnessSlaSeconds: number;
   status: "Funded" | "Attestation Received" | "SLA Met" | "Refunded";
   resolvedAt?: string;
+  dataAgeSeconds?: number;
+  dataPayload?: DeliveredPayload;
 }
 
 export function useBuyerFlow() {
@@ -175,7 +181,16 @@ export function useBuyerFlow() {
           }
         }
 
-        const newReceipt: JobExecutionReceipt = {
+        const safeAge = Number(
+          (Math.random() * (dataset.freshnessSlaSeconds * 0.35) + 0.6).toFixed(1)
+        );
+        const deliveredData = generateDeliveredPayload(
+          dataset.name,
+          safeAge,
+          dataset.freshnessSlaSeconds
+        );
+
+        const initialReceipt: JobExecutionReceipt = {
           jobId: simulatedJobId,
           txApprove: approveTxHash,
           txCreate: createTxHash,
@@ -186,24 +201,24 @@ export function useBuyerFlow() {
           status: "Funded",
         };
 
-        setReceipt(newReceipt);
+        setReceipt(initialReceipt);
         setStep("job_active");
 
-        // Simulate operator resolution after SLA window
-        setTimeout(() => {
-          setReceipt((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  status: "SLA Met",
-                  resolvedAt: new Date().toLocaleTimeString(),
-                }
-              : null
-          );
-          setStep("completed");
-        }, 4000);
+        // Simulate operator attestation & SLA hook verification on Monad
+        await new Promise((resolve) => setTimeout(resolve, 2400));
 
-        return newReceipt;
+        const completedReceipt: JobExecutionReceipt = {
+          ...initialReceipt,
+          status: "SLA Met",
+          resolvedAt: new Date().toLocaleTimeString(),
+          dataAgeSeconds: safeAge,
+          dataPayload: deliveredData,
+        };
+
+        setReceipt(completedReceipt);
+        setStep("completed");
+
+        return completedReceipt;
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         console.error("[Veris Buyer] Purchase error:", msg);

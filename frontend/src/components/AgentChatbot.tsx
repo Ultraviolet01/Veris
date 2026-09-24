@@ -22,6 +22,8 @@ import {
   Maximize2,
   Minimize2,
 } from "lucide-react";
+import { DataPayloadViewer } from "./DataPayloadViewer";
+import type { DeliveredPayload } from "../lib/dataPayloads";
 
 interface ParsedPurchase {
   sellerId: string;
@@ -45,6 +47,15 @@ interface ChatMessage {
     txHash?: string;
     slaSeconds: number;
     priceUsdc: number;
+    dataAgeSeconds?: number;
+    dataPayload?: DeliveredPayload | Record<string, unknown>;
+  };
+  deliveryData?: {
+    datasetName: string;
+    payload: DeliveredPayload | Record<string, unknown>;
+    dataAgeSeconds: number;
+    slaSeconds: number;
+    jobId: string;
   };
 }
 
@@ -211,6 +222,8 @@ export const AgentChatbot: React.FC = () => {
 
     try {
       const receipt = await executeJobPurchase(targetDataset, parsed.maxPrice);
+      
+      // Update original proposal card to completed
       setMessages((prev) =>
         prev.map((m) =>
           m.id === msgId
@@ -222,11 +235,33 @@ export const AgentChatbot: React.FC = () => {
                   txHash: receipt.txFund,
                   slaSeconds: receipt.freshnessSlaSeconds,
                   priceUsdc: receipt.budgetUsdc,
+                  dataAgeSeconds: receipt.dataAgeSeconds,
+                  dataPayload: receipt.dataPayload,
                 },
               }
             : m
         )
       );
+
+      // Append Claude conversational reply with verified data payload
+      const deliveryMsgId = `claude-delivery-${Date.now()}`;
+      const deliveryMsg: ChatMessage = {
+        id: deliveryMsgId,
+        sender: "claude",
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        text: `🎉 Order #${receipt.jobId} settled! The Monad SlaEvaluator verified that your data attestation was fresh within ${receipt.freshnessSlaSeconds}s (observed age: ${receipt.dataAgeSeconds ?? 1.2}s). Here is your delivered data for ${targetDataset.name}:`,
+        deliveryData: receipt.dataPayload
+          ? {
+              datasetName: targetDataset.name,
+              payload: receipt.dataPayload,
+              dataAgeSeconds: receipt.dataAgeSeconds ?? 1.2,
+              slaSeconds: receipt.freshnessSlaSeconds,
+              jobId: receipt.jobId,
+            }
+          : undefined,
+      };
+
+      setMessages((prev) => [...prev, deliveryMsg]);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Execution failed";
       setMessages((prev) =>
@@ -353,6 +388,19 @@ export const AgentChatbot: React.FC = () => {
                   </div>
                 )}
 
+                {/* Delivered Data Payload Display from Claude Reply */}
+                {m.deliveryData && (
+                  <div className="max-w-[98%] w-full mt-2 animate-in fade-in slide-in-from-bottom-2">
+                    <DataPayloadViewer
+                      datasetName={m.deliveryData.datasetName}
+                      payload={m.deliveryData.payload}
+                      jobId={m.deliveryData.jobId}
+                      dataAgeSeconds={m.deliveryData.dataAgeSeconds}
+                      slaSeconds={m.deliveryData.slaSeconds}
+                    />
+                  </div>
+                )}
+
                 {/* Error Bubble (Claude Ambiguity or Missing Info) */}
                 {m.error && (
                   <div className="max-w-[92%] p-3 rounded-2xl bg-rose-950/40 border border-rose-500/30 text-xs text-rose-200 rounded-bl-none space-y-1">
@@ -434,7 +482,7 @@ export const AgentChatbot: React.FC = () => {
                     {/* Execution UI / Action Button */}
                     {m.executionStatus === "completed" && m.receipt ? (
                       /* Receipt View */
-                      <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-200 space-y-1.5 animate-in fade-in">
+                      <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-200 space-y-2 animate-in fade-in">
                         <div className="flex items-center justify-between text-xs font-bold text-white">
                           <span className="flex items-center gap-1 text-emerald-400">
                             <CheckCircle2 className="w-3.5 h-3.5" />
@@ -443,18 +491,31 @@ export const AgentChatbot: React.FC = () => {
                           <span className="text-cyan-300 font-mono">${m.receipt.priceUsdc} USDC</span>
                         </div>
                         <p className="text-[11px] text-zinc-300 leading-snug">
-                          Attestation verified fresh within SLA! Seller paid & reputation updated.
+                          Attestation verified fresh within SLA! Data delivered below & seller reputation updated.
                         </p>
                         {m.receipt.txHash && (
                           <a
                             href={`${MONAD_TESTNET_EXPLORER}/tx/${m.receipt.txHash}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-cyan-300 hover:underline font-mono text-[10px] pt-1"
+                            className="inline-flex items-center gap-1 text-cyan-300 hover:underline font-mono text-[10px] pt-0.5"
                           >
                             <span>View MonadScan Tx</span>
                             <ExternalLink className="w-3 h-3" />
                           </a>
+                        )}
+
+                        {m.receipt.dataPayload && (
+                          <div className="pt-1">
+                            <DataPayloadViewer
+                              datasetName={m.matchedDataset?.name || m.parsed.matchedDatasetName || "Purchased Data Feed"}
+                              payload={m.receipt.dataPayload}
+                              jobId={m.receipt.jobId}
+                              dataAgeSeconds={m.receipt.dataAgeSeconds}
+                              slaSeconds={m.receipt.slaSeconds}
+                              compact={true}
+                            />
+                          </div>
                         )}
                       </div>
                     ) : (
