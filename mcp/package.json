@@ -1,0 +1,31 @@
+{
+  "name": "@veris/mcp-server",
+  "version": "1.0.0",
+  "description": "Veris Model Context Protocol (MCP) server — discover, quote, purchase, and verify SLA-guaranteed on-chain datasets for AI agents on Monad",
+  "type": "module",
+  "main": "dist/server.js",
+  "bin": {
+    "veris-mcp": "dist/server.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "dev": "tsx src/server.ts",
+    "typecheck": "tsc --noEmit",
+    "test:tools": "tsx scripts/testTools.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.6.0",
+    "dotenv": "^16.4.5",
+    "ethers": "^6.13.4",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.5.4"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

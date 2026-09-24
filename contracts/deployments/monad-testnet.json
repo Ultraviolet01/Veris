@@ -1,0 +1,13 @@
+{
+  "network": "monad-testnet",
+  "chainId": 10143,
+  "usdc": "0x534b2f3A21130d7a60830c2Df862319e593943A3",
+  "feeBps": 200,
+  "contracts": {
+    "SellerRegistry": "0xE0E71C31890DD9f78b3B7f147046dBF1cc374547",
+    "ReputationRegistry": "0x4b4c76a28a0f5577A80a470C64d64c4dFC5A7183",
+    "VerisTreasury": "0x402E06B57D2e5c0452492703764a7E24e9772E56",
+    "ACPCore": "0x5898d78653C1f691431A045580c1b1D6aFC28AF9",
+    "SlaEvaluator": "0xfc10869E2Bb2E8060DD59C59D0aAB01475bb75A0"
+  }
+}

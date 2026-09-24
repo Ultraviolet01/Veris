@@ -1,0 +1,74 @@
+{
+  "protocol": "Veris",
+  "chainId": 10143,
+  "chainName": "Monad Testnet",
+  "currency": "USDC",
+  "datasets": [
+    {
+      "sellerId": "0x76657269732e6574680000000000000000000000000000000000000000000000",
+      "sellerName": "veris.eth",
+      "datasetId": "0x6b7572752d6f72646572626f6f6b000000000000000000000000000000000000",
+      "name": "Kuru CLOB DEX Best Bid/Ask & Depth",
+      "category": "DEX Liquidity",
+      "description": "Sub-second order book snapshot (best bid, best ask, spread) from Kuru CLOB on Monad mainnet.",
+      "sourceChainId": 143,
+      "defaultPriceUsdc": 0.35,
+      "defaultFreshnessWindowSeconds": 3
+    },
+    {
+      "sellerId": "0x76657269732e6574680000000000000000000000000000000000000000000000",
+      "sellerName": "veris.eth",
+      "datasetId": "0x616176652d76332d726174657300000000000000000000000000000000000000",
+      "name": "Aave V3 Lending Rates & Liquidity APY",
+      "category": "DeFi Rates",
+      "description": "Real-time liquidity rate, variable borrow rate, and reserve factor attested from on-chain Aave V3 lending pools.",
+      "sourceChainId": 1,
+      "defaultPriceUsdc": 0.25,
+      "defaultFreshnessWindowSeconds": 10
+    },
+    {
+      "sellerId": "0x76657269732e6574680000000000000000000000000000000000000000000000",
+      "sellerName": "veris.eth",
+      "datasetId": "0x756e69737761702d76332d747761700000000000000000000000000000000000",
+      "name": "Uniswap V3 High-Frequency Pool TWAP",
+      "category": "DEX Liquidity",
+      "description": "High-frequency spot tick, fee growth globals, and tick cumulative depth snapshots.",
+      "sourceChainId": 1,
+      "defaultPriceUsdc": 0.30,
+      "defaultFreshnessWindowSeconds": 5
+    },
+    {
+      "sellerId": "0x76657269732e6574680000000000000000000000000000000000000000000000",
+      "sellerName": "veris.eth",
+      "datasetId": "0x6f70656e7365612d736561706f72740000000000000000000000000000000000",
+      "name": "OpenSea Seaport Floor Prices & Trades",
+      "category": "NFT & RWA",
+      "description": "Verified OrderFulfilled event streams, instant settlement volume, and collection floor prices.",
+      "sourceChainId": 1,
+      "defaultPriceUsdc": 0.40,
+      "defaultFreshnessWindowSeconds": 15
+    },
+    {
+      "sellerId": "0x76657269732e6574680000000000000000000000000000000000000000000000",
+      "sellerName": "veris.eth",
+      "datasetId": "0x706572706c2d66756e64696e6700000000000000000000000000000000000000",
+      "name": "Perpl Derivatives Mark Price & Funding Rates",
+      "category": "Perps & Derivatives",
+      "description": "Real-time perpetual mark price, index deviation, and 1h funding velocity on Monad.",
+      "sourceChainId": 143,
+      "defaultPriceUsdc": 0.45,
+      "defaultFreshnessWindowSeconds": 5
+    },
+    {
+      "sellerId": "0x76657269732e6574680000000000000000000000000000000000000000000000",
+      "sellerName": "veris.eth",
+      "datasetId": "0x706f6c796d61726b657400000000000000000000000000000000000000000000",
+      "name": "Polymarket Outcome Probabilities & Depth",
+      "category": "Prediction Markets",
+      "description": "Live prediction market probability curves, order books, and open settlement shares.",
+      "sourceChainId": 137,
+      "defaultPriceUsdc": 0.60,
+      "defaultFreshnessWindowSeconds": 8
+    }
+  ]
+}

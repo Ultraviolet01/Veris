@@ -1,0 +1,49 @@
+# ── Environments & Critical Secrets (NEVER COMMIT) ──────────────────────────
+.env
+.env.*
+*.env
+**/.env
+**/.env.*
+!**/.env.example
+
+# ── Dependencies ────────────────────────────────────────────────────────────
+node_modules/
+*/node_modules/
+*/*/node_modules/
+
+# ── Build Outputs & Compilers ──────────────────────────────────────────────
+dist/
+*/dist/
+build/
+*/build/
+out/
+*/out/
+cache/
+*/cache/
+dist-ssr/
+*.tsbuildinfo
+
+# ── Foundry Artifacts ──────────────────────────────────────────────────────
+broadcast/
+*/broadcast/
+
+# ── Logs & Debug Files ─────────────────────────────────────────────────────
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ── OS & IDE Temporary Files ───────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.kilo/
+
+# ── Legacy Static Mockup ───────────────────────────────────────────────────
+veris-website/

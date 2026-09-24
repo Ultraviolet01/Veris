@@ -1,0 +1,179 @@
+@import "tailwindcss";
+
+@theme {
+  --color-neutral-50: #fafafa;
+  --color-neutral-100: #f5f5f5;
+  --color-neutral-200: #e5e5e5;
+  --color-neutral-300: #d4d4d4;
+  --color-neutral-400: #a3a3a3;
+  --color-neutral-500: #737373;
+  --color-neutral-600: #525252;
+  --color-neutral-700: #404040;
+  --color-neutral-800: #262626;
+  --color-neutral-900: #171717;
+  --color-neutral-950: #0a0a0a;
+
+  --color-red-50: #fef2f2;
+  --color-red-100: #fee2e2;
+  --color-red-200: #fecaca;
+  --color-red-300: #fca5a5;
+  --color-red-400: #f87171;
+  --color-red-500: #ef4444;
+  --color-red-600: #dc2626;
+  --color-red-700: #b91c1c;
+  --color-red-800: #991b1b;
+  --color-red-900: #7f1d1d;
+  --color-red-950: #450a0a;
+
+  --color-purple-50: #faf8ff;
+  --color-purple-100: #f2efff;
+  --color-purple-200: #e5dfff;
+  --color-purple-300: #cfc2fe;
+  --color-purple-400: #b19afa;
+  --color-purple-500: #836ef9;
+  --color-purple-600: #6f59e9;
+  --color-purple-700: #5a42d0;
+  --color-purple-800: #4936aa;
+  --color-purple-900: #2b1e75;
+  --color-purple-950: #130c3b;
+
+  --color-gray-200: #e5e7eb;
+  --color-green-500: #22c55e;
+  --color-emerald-400: #34d399;
+  --color-emerald-500: #10b981;
+}
+
+@keyframes fadeInUp {
+  0% {
+    opacity: 0;
+    transform: translateY(20px) scale(0.98);
+    filter: blur(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0px);
+  }
+}
+
+:root {
+  --bg-dark: #020204;
+  --bg-card: #08090e;
+  --monad-purple: #836ef9;
+  --fresh-green: #10b981;
+  --accent-glow: rgba(131, 110, 249, 0.18);
+}
+
+.glass-panel {
+  background: rgba(10, 11, 18, 0.72);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.badge-monad {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.2rem 0.65rem;
+  border-radius: 9999px;
+  font-size: 0.6875rem;
+  font-family: 'DM Mono', ui-monospace, monospace;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+  background-color: rgba(131, 110, 249, 0.12);
+  border: 1px solid rgba(131, 110, 249, 0.3);
+  color: #c4bbfd;
+}
+
+body {
+  background-color: var(--bg-dark);
+  color: #a3a3a3;
+  font-family: 'Geist', -apple-system, BlinkMacSystemFont, sans-serif;
+  overflow-x: hidden;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+  color: #ededed;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+button:not(:disabled),
+[role="button"]:not(:disabled) {
+  cursor: pointer;
+}
+
+a:focus-visible,
+button:focus-visible {
+  outline: 2px solid #ff5a36;
+  outline-offset: 3px;
+  border-radius: 9999px;
+}
+
+.grid-lines {
+  background-image: linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 16.66% 100%;
+}
+
+[style*="--border-gradient"]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: var(--border-radius-before, inherit);
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  background: var(--border-gradient);
+  pointer-events: none;
+}
+
+.animate-on-scroll {
+  animation-play-state: paused !important;
+}
+
+.animate-on-scroll.animate {
+  animation-play-state: running !important;
+}
+
+.text-gradient {
+  background: linear-gradient(to bottom right, #ffffff, #a5a5a5);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .animate-on-scroll {
+    animation: none !important;
+  }
+
+  .animate-spin,
+  .animate-ping,
+  .animate-pulse {
+    animation: none !important;
+  }
+}
