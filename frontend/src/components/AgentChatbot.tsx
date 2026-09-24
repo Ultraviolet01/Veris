@@ -75,7 +75,7 @@ export const AgentChatbot: React.FC = () => {
   const isLoggedIn = useIsLoggedIn();
   const { setShowAuthFlow } = useDynamicContext();
   const { usdcBalance } = useUsdcBalance();
-  const { executeJobPurchase } = useBuyerFlow();
+  const { executeJobPurchase, step: buyerStep } = useBuyerFlow();
 
   const [activeExecutingMsgId, setActiveExecutingMsgId] = useState<string | null>(null);
 
