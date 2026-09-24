@@ -5,20 +5,13 @@ import {
   Check,
   Cpu,
   ShieldCheck,
-  BookOpen,
-  ArrowRight,
-  ExternalLink,
-  Layers,
-  Key,
   CheckCircle2,
   Code2,
-  RefreshCw,
 } from "lucide-react";
 import {
   ADDRESSES,
   HARD_SPENDING_CAP_USDC,
   MONAD_TESTNET_CHAIN_ID,
-  MONAD_TESTNET_EXPLORER,
   MONAD_TESTNET_RPC,
 } from "../lib/contracts";
 

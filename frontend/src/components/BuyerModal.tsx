@@ -272,19 +272,48 @@ export const BuyerModal: React.FC<BuyerModalProps> = ({ dataset, onClose }) => {
                 Data attestation validated against Monad block timestamp. Data was genuinely fresh (within {receipt.freshnessSlaSeconds}s). Seller received payment; reputation score incremented.
               </p>
               {receipt.realTxHash ? (
-                <div className="flex items-center justify-between pt-1">
-                  <a
-                    href={`${MONAD_TESTNET_EXPLORER}/tx/${receipt.realTxHash}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-[#a797ff] hover:underline font-mono text-[11px]"
-                  >
-                    <span>View MonadScan On-Chain Tx</span>
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
-                  <span className="text-[10px] text-zinc-400 font-mono">
-                    Auth: ERC-20 Escrow Approval
-                  </span>
+                <div className="space-y-1.5 pt-1">
+                  {receipt.txFund && (
+                    <div className="flex items-center justify-between text-[11px] font-mono">
+                      <span className="text-zinc-400">1. Escrow Funded:</span>
+                      <a
+                        href={`${MONAD_TESTNET_EXPLORER}/tx/${receipt.txFund}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-[#a797ff] hover:underline"
+                      >
+                        <span>View Escrow Deposit Tx</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </div>
+                  )}
+                  {receipt.txResolve && (
+                    <div className="flex items-center justify-between text-[11px] font-mono">
+                      <span className="text-zinc-400">2. SlaEvaluator Resolution:</span>
+                      <a
+                        href={`${MONAD_TESTNET_EXPLORER}/tx/${receipt.txResolve}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-emerald-400 hover:underline"
+                      >
+                        <span>View Settlement Payout Tx</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </div>
+                  )}
+                  {!receipt.txFund && !receipt.txResolve && (
+                    <div className="flex items-center justify-between">
+                      <a
+                        href={`${MONAD_TESTNET_EXPLORER}/tx/${receipt.realTxHash}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-[#a797ff] hover:underline font-mono text-[11px]"
+                      >
+                        <span>View MonadScan On-Chain Tx</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="text-[11px] text-amber-300 font-mono pt-1 flex items-center gap-1.5">

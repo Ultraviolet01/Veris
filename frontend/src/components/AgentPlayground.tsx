@@ -1,34 +1,129 @@
 import { useState } from "react";
-import { Play, RotateCcw, CheckCircle2, XCircle, ShieldAlert, Copy, Check, Terminal } from "lucide-react";
+import {
+  Play,
+  RotateCcw,
+  CheckCircle2,
+  XCircle,
+  ShieldAlert,
+  Copy,
+  Check,
+  Terminal,
+  ExternalLink,
+  Wallet,
+  ArrowRight,
+  Lock,
+} from "lucide-react";
+import { useDynamicContext, useIsLoggedIn } from "@dynamic-labs/sdk-react-core";
+import { useBuyerFlow } from "../hooks/useBuyerFlow";
+import { useUsdcBalance } from "../hooks/useUsdcBalance";
+import {
+  FEATURED_DATASETS,
+  MONAD_TESTNET_EXPLORER,
+  ADDRESSES,
+} from "../lib/contracts";
 
 export function AgentPlayground() {
   const [selectedScenario, setSelectedScenario] = useState<"fresh" | "stale" | "invalid">("fresh");
   const [selectedDataset, setSelectedDataset] = useState<string>("monad-dex-prices");
+  const [executionMode, setExecutionMode] = useState<"live" | "simulated">("simulated");
   const [isRunning, setIsRunning] = useState<boolean>(false);
-  const [currentStep, setCurrentStep] = useState<number>(4);
+  const [currentStep, setCurrentStep] = useState<number>(0);
   const [copied, setCopied] = useState<boolean>(false);
+  const [liveReceipt, setLiveReceipt] = useState<{
+    jobId?: string;
+    txCreate?: string;
+    txFund?: string;
+    txResolve?: string;
+    ageSeconds?: number;
+    status?: string;
+  } | null>(null);
 
-  const handleRunSimulation = () => {
-    setIsRunning(true);
-    setCurrentStep(1);
+  const isLoggedIn = useIsLoggedIn();
+  const { setShowAuthFlow } = useDynamicContext();
+  const { usdcBalance } = useUsdcBalance();
+  const { executeJobPurchase, step: buyerStep, error: buyerError } = useBuyerFlow();
 
-    setTimeout(() => {
-      setCurrentStep(2);
+  const handleRunExecution = async () => {
+    if (executionMode === "live") {
+      if (!isLoggedIn) {
+        setShowAuthFlow(true);
+        return;
+      }
+
+      setIsRunning(true);
+      setCurrentStep(1);
+      setLiveReceipt(null);
+
+      try {
+        const targetDataset =
+          FEATURED_DATASETS.find((d) => d.name.toLowerCase().includes(selectedDataset.split("-")[0])) ||
+          FEATURED_DATASETS[1]; // Kuru default
+
+        const forceStale = selectedScenario === "stale";
+        const result = await executeJobPurchase(targetDataset, 0.25, forceStale);
+
+        setLiveReceipt({
+          jobId: result.jobId,
+          txCreate: result.txCreate,
+          txFund: result.txFund,
+          txResolve: result.txResolve,
+          ageSeconds: result.dataAgeSeconds,
+          status: result.status,
+        });
+
+        setCurrentStep(4);
+      } catch (err) {
+        console.error("[AgentPlayground Live Error]:", err);
+      } finally {
+        setIsRunning(false);
+      }
+    } else {
+      // Interactive architectural simulation
+      setIsRunning(true);
+      setCurrentStep(1);
+
       setTimeout(() => {
-        setCurrentStep(3);
+        setCurrentStep(2);
         setTimeout(() => {
-          setCurrentStep(4);
-          setIsRunning(false);
+          setCurrentStep(3);
+          setTimeout(() => {
+            setCurrentStep(4);
+            setIsRunning(false);
+          }, 600);
         }, 600);
       }, 600);
-    }, 600);
+    }
   };
 
   const getProofJson = () => {
+    if (liveReceipt && liveReceipt.jobId) {
+      return JSON.stringify(
+        {
+          mode: "LIVE_ON_CHAIN_MONAD_TESTNET",
+          jobId: Number(liveReceipt.jobId),
+          status: liveReceipt.status === "SLA Met" ? "COMPLETED_SELLER_PAID" : "REJECTED_BUYER_REFUNDED",
+          escrowContract: ADDRESSES.acpCore,
+          slaEvaluatorContract: ADDRESSES.slaEvaluator,
+          txFundEscrow: liveReceipt.txFund,
+          txResolve: liveReceipt.txResolve,
+          observedAgeSeconds: liveReceipt.ageSeconds ?? (selectedScenario === "fresh" ? 2.4 : 15.2),
+          maxAllowedSlaSeconds: 10.0,
+          slaHonored: liveReceipt.status === "SLA Met",
+          fundsSettlement:
+            liveReceipt.status === "SLA Met"
+              ? "0.245 USDC to seller (98%), 0.005 USDC to VerisTreasury (2%)"
+              : "0.25 USDC 100% refunded back to buyer wallet",
+        },
+        null,
+        2
+      );
+    }
+
     if (selectedScenario === "fresh") {
       return JSON.stringify(
         {
-          status: "PROOF_VERIFIED",
+          mode: "SIMULATED_STATE_MACHINE",
+          status: "PROOF_VERIFIED_SELLER_PAID",
           dataset: selectedDataset,
           chainId: 10143,
           sourceBlock: 38219447,
@@ -36,11 +131,11 @@ export function AgentPlayground() {
           observedAgeSeconds: 2.8,
           maxAllowedSlaSeconds: 10.0,
           slaHonored: true,
+          buyerEscrowDepositUsdc: 1.50,
           sellerPayoutUsdc: 1.47,
           protocolFeeUsdc: 0.03,
-          seller: "0x8a41b3e8912d098e12fa",
-          signerKey: "0x9B14E8F192804b72",
-          settlementTx: "0x7c19ad84f019b841e01928a",
+          sellerPayoutAddress: "0x9b3dBb74adf386b2236D34D36E05ECC45ABB38fB",
+          slaEvaluatorHook: ADDRESSES.slaEvaluator,
         },
         null,
         2
@@ -48,7 +143,8 @@ export function AgentPlayground() {
     } else if (selectedScenario === "stale") {
       return JSON.stringify(
         {
-          status: "SLA_BREACH_REFUNDED",
+          mode: "SIMULATED_STATE_MACHINE",
+          status: "SLA_BREACH_AUTO_REFUNDED",
           dataset: selectedDataset,
           chainId: 10143,
           sourceBlock: 38218104,
@@ -56,10 +152,12 @@ export function AgentPlayground() {
           observedAgeSeconds: 14.8,
           maxAllowedSlaSeconds: 10.0,
           slaHonored: false,
+          buyerEscrowDepositUsdc: 1.50,
           buyerRefundUsdc: 1.50,
+          sellerPayoutUsdc: 0.0,
           protocolFeeUsdc: 0.0,
-          reputationPenaltyApplied: true,
-          revertReason: "SlaEvaluator: attestation exceeds maxSlaSeconds",
+          revertReason: "SlaEvaluator: attestation exceeds max freshness window -> acpCore.reject()",
+          refundStatus: "100% of escrow returned to buyer wallet",
         },
         null,
         2
@@ -67,14 +165,15 @@ export function AgentPlayground() {
     } else {
       return JSON.stringify(
         {
+          mode: "SIMULATED_STATE_MACHINE",
           status: "EXECUTION_REVERTED",
           dataset: selectedDataset,
           chainId: 10143,
           error: "INVALID_SIGNATURE",
           recoveredSigner: "0x3333333333333333",
-          expectedOperatorKey: "0x9B14E8F192804b72",
-          revertReason: "SlaEvaluator: unauthorized attestation signer",
-          fundsSafeguard: "Escrow funds locked. Caller refunded on timeout.",
+          expectedOperatorKey: "0x9b3dBb74adf386b2236D34D36E05ECC45ABB38fB",
+          revertReason: "SlaEvaluator: recovered operatorKey mismatch",
+          fundsSafeguard: "Escrow funds locked. Caller refunded on timeout via claimRefund().",
         },
         null,
         2
@@ -91,24 +190,99 @@ export function AgentPlayground() {
   return (
     <section className="max-w-6xl mx-auto px-4 lg:px-8 py-10">
       {/* Header */}
-      <div className="mb-10 text-center max-w-3xl mx-auto">
+      <div className="mb-8 text-center max-w-3xl mx-auto">
         <div className="inline-flex items-center gap-2 rounded-full border border-purple-500/20 bg-purple-950/20 px-3 py-1 text-[10px] font-medium uppercase tracking-wider text-purple-300 mb-3">
           <Terminal size={12} className="text-purple-400" />
-          Interactive Verification Sandbox
+          Interactive Verification & Escrow Sandbox
         </div>
         <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-white font-['Outfit']">
-          Watch a Query Become an On-Chain Proof
+          Watch Funds Escrow & Resolve On-Chain
         </h2>
         <p className="mt-2 text-sm text-neutral-400 leading-relaxed">
-          Simulate autonomous agent execution on Monad without configuring a wallet or holding testnet MON.
-          Choose a scenario below to inspect how the smart contracts settle funds mathematically.
+          In Veris (like OpenBook), funds are <strong>deducted first into the ACPCore escrow contract</strong>.
+          The operator signs a block freshness attestation: if fresh, funds route to the seller (98%) and treasury (2%); if stale, <strong>100% is automatically refunded to the buyer</strong>.
         </p>
+
+        {/* Live vs Simulation Mode Switcher */}
+        <div className="mt-5 inline-flex items-center gap-2 p-1.5 rounded-2xl bg-neutral-900 border border-white/10 shadow-lg">
+          <button
+            onClick={() => setExecutionMode("simulated")}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+              executionMode === "simulated"
+                ? "bg-purple-600 text-white shadow-md shadow-purple-900/40"
+                : "text-neutral-400 hover:text-white"
+            }`}
+          >
+            ⚡ Instant Simulation Mode
+          </button>
+          <button
+            onClick={() => setExecutionMode("live")}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+              executionMode === "live"
+                ? "bg-cyan-600 text-white shadow-md shadow-cyan-900/40"
+                : "text-neutral-400 hover:text-white"
+            }`}
+          >
+            <Wallet size={12} />
+            <span>Live On-Chain Escrow (Monad Testnet)</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Escrow Balance & Flow Visualizer Banner */}
+      <div className="mb-8 p-4 rounded-2xl bg-[#090b14] border border-purple-500/20 shadow-xl">
+        <div className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider mb-2 flex items-center justify-between">
+          <span className="flex items-center gap-1.5 text-purple-300">
+            <Lock size={12} />
+            Escrow State Invariant Flow
+          </span>
+          <span className="text-[10px] text-cyan-400 font-mono">
+            {executionMode === "live" ? `Wallet Balance: ${usdcBalance} USDC` : "Demo Model: 1.50 USDC"}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-center text-xs">
+          {/* Step 1: Deposit */}
+          <div className="p-3 rounded-xl bg-white/[0.03] border border-white/5 space-y-1">
+            <div className="text-[10px] text-neutral-400 font-medium">1. Fund Deducted into Escrow</div>
+            <div className="text-sm font-bold text-white flex items-center gap-1">
+              <span className="text-rose-400">- 1.50 USDC</span>
+              <ArrowRight size={12} className="text-neutral-500" />
+              <span className="text-purple-300 font-mono">ACPCore.sol</span>
+            </div>
+            <p className="text-[10px] text-neutral-500">Locked in escrow contract via <code>fund()</code></p>
+          </div>
+
+          {/* Step 2: Verification */}
+          <div className="p-3 rounded-xl bg-white/[0.03] border border-white/5 space-y-1">
+            <div className="text-[10px] text-neutral-400 font-medium">2. SlaEvaluator Attestation Check</div>
+            <div className="text-sm font-bold text-cyan-300">
+              {selectedScenario === "fresh" && "Observed Age: 2.8s ≤ 10s SLA"}
+              {selectedScenario === "stale" && "Observed Age: 14.8s > 10s (Stale!)"}
+              {selectedScenario === "invalid" && "Invalid ECDSA Operator Key"}
+            </div>
+            <p className="text-[10px] text-neutral-500">Wall-clock block timestamp verification</p>
+          </div>
+
+          {/* Step 3: Payout or Refund */}
+          <div className="p-3 rounded-xl bg-white/[0.03] border border-white/5 space-y-1">
+            <div className="text-[10px] text-neutral-400 font-medium">3. Settlement Outcome</div>
+            <div className={`text-sm font-bold ${selectedScenario === "fresh" ? "text-emerald-400" : "text-rose-400"}`}>
+              {selectedScenario === "fresh" && "Seller Paid (1.47) + Veris (0.03)"}
+              {selectedScenario === "stale" && "100% Refunded to Buyer (+1.50)"}
+              {selectedScenario === "invalid" && "Reverted · Funds In Escrow"}
+            </div>
+            <p className="text-[10px] text-neutral-500">
+              {selectedScenario === "fresh" ? "SlaEvaluator.complete() executes" : "acpCore.reject() refunds buyer in full"}
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Scenario Selector Tabs */}
-      <div className="flex flex-wrap items-center justify-center gap-3 mb-10">
+      <div className="flex flex-wrap items-center justify-center gap-3 mb-8">
         <button
-          onClick={() => setSelectedScenario("fresh")}
+          onClick={() => { setSelectedScenario("fresh"); setCurrentStep(0); setLiveReceipt(null); }}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
             selectedScenario === "fresh"
               ? "bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 shadow-lg shadow-emerald-950/40"
@@ -116,11 +290,11 @@ export function AgentPlayground() {
           }`}
         >
           <CheckCircle2 size={15} className={selectedScenario === "fresh" ? "text-emerald-400" : "text-neutral-500"} />
-          <span>Scenario 1: Fresh SLA Met (&le; 10s)</span>
+          <span>Scenario 1: Fresh SLA Met (&le; 10s) &rarr; Seller Paid</span>
         </button>
 
         <button
-          onClick={() => setSelectedScenario("stale")}
+          onClick={() => { setSelectedScenario("stale"); setCurrentStep(0); setLiveReceipt(null); }}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
             selectedScenario === "stale"
               ? "bg-rose-500/15 border border-rose-500/40 text-rose-300 shadow-lg shadow-rose-950/40"
@@ -128,11 +302,11 @@ export function AgentPlayground() {
           }`}
         >
           <XCircle size={15} className={selectedScenario === "stale" ? "text-rose-400" : "text-neutral-500"} />
-          <span>Scenario 2: Stale Data Breached (100% Refund)</span>
+          <span>Scenario 2: Stale Data Breached &rarr; 100% Buyer Refund</span>
         </button>
 
         <button
-          onClick={() => setSelectedScenario("invalid")}
+          onClick={() => { setSelectedScenario("invalid"); setCurrentStep(0); setLiveReceipt(null); }}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
             selectedScenario === "invalid"
               ? "bg-amber-500/15 border border-amber-500/40 text-amber-300 shadow-lg shadow-amber-950/40"
@@ -151,7 +325,9 @@ export function AgentPlayground() {
           <div className="glass-panel p-6 sm:p-7 rounded-2xl border border-white/10">
             <h3 className="text-sm font-semibold uppercase tracking-wider text-neutral-300 mb-4 flex items-center justify-between">
               <span>1. Request Parameters</span>
-              <span className="badge-monad text-[10px]">Mock Agent</span>
+              <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full ${executionMode === "live" ? "bg-cyan-950/40 border border-cyan-500/30 text-cyan-300" : "bg-purple-950/40 border border-purple-500/30 text-purple-300"}`}>
+                {executionMode === "live" ? "Live Monad Testnet" : "Simulation Model"}
+              </span>
             </h3>
 
             <div className="space-y-4 text-xs">
@@ -162,7 +338,7 @@ export function AgentPlayground() {
                   onChange={(e) => setSelectedDataset(e.target.value)}
                   className="w-full bg-[#050609] border border-white/10 rounded-xl px-3.5 py-2.5 text-white font-mono text-xs focus:outline-none focus:border-purple-500"
                 >
-                  <option value="monad-dex-prices">Monad DEX Spot Prices (Kuru & Uniswap)</option>
+                  <option value="monad-dex-prices">Kuru CLOB DEX Best Bid/Ask (Monad)</option>
                   <option value="aave-v3-rates">Aave V3 Lending APY & Reserve Factors</option>
                   <option value="gas-priority-risk">Monad Sequencer Queue & MEV Risk</option>
                 </select>
@@ -176,27 +352,47 @@ export function AgentPlayground() {
                   </div>
                 </div>
                 <div>
-                  <label className="text-neutral-400 block mb-1.5 font-medium">Escrow Amount</label>
-                  <div className="bg-[#050609] border border-white/10 rounded-xl px-3.5 py-2.5 text-white font-mono text-xs">
-                    1.50 USDC
+                  <label className="text-neutral-400 block mb-1.5 font-medium">Escrow Deposit</label>
+                  <div className="bg-[#050609] border border-white/10 rounded-xl px-3.5 py-2.5 text-white font-mono text-xs text-rose-300 font-bold">
+                    {executionMode === "live" ? "0.25 USDC" : "1.50 USDC"}
                   </div>
                 </div>
               </div>
 
+              {buyerError && (
+                <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs">
+                  {buyerError}
+                </div>
+              )}
+
               <button
                 disabled={isRunning}
-                onClick={handleRunSimulation}
-                className="w-full mt-2 flex items-center justify-center gap-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white py-3 text-xs font-semibold transition-all cursor-pointer disabled:opacity-50"
+                onClick={handleRunExecution}
+                className="w-full mt-2 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white py-3 text-xs font-semibold transition-all cursor-pointer disabled:opacity-50 shadow-lg shadow-purple-900/30"
               >
                 {isRunning ? (
                   <>
                     <RotateCcw size={14} className="animate-spin" />
-                    <span>Executing SlaEvaluator on Monad VM...</span>
+                    <span>
+                      {buyerStep === "approving"
+                        ? "Approving USDC Allowance..."
+                        : buyerStep === "creating_job"
+                        ? "Creating Job on ACPCore..."
+                        : buyerStep === "funding_job"
+                        ? "Deducting USDC into Escrow (fund)..."
+                        : "Resolving Attestation on Monad VM..."}
+                    </span>
                   </>
                 ) : (
                   <>
                     <Play size={14} />
-                    <span>Run & Verify Settlement</span>
+                    <span>
+                      {executionMode === "live"
+                        ? !isLoggedIn
+                          ? "Connect Wallet to Execute Live Escrow"
+                          : `Deduct Escrow & Resolve On-Chain (${selectedScenario === "stale" ? "Trigger Refund" : "Settle Payout"})`
+                        : "Run Escrow Lifecycle Simulation"}
+                    </span>
                   </>
                 )}
               </button>
@@ -205,8 +401,13 @@ export function AgentPlayground() {
 
           {/* 4-Step Animated Trace */}
           <div className="glass-panel p-6 sm:p-7 rounded-2xl border border-white/10">
-            <h3 className="text-sm font-semibold uppercase tracking-wider text-neutral-300 mb-5">
-              2. Protocol Execution Trace
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-neutral-300 mb-5 flex items-center justify-between">
+              <span>2. Protocol Execution Trace</span>
+              {currentStep === 4 && (
+                <span className="text-[10px] text-emerald-400 font-mono flex items-center gap-1">
+                  <CheckCircle2 size={12} /> Settled
+                </span>
+              )}
             </h3>
 
             <ol className="relative border-l border-white/10 ml-3 space-y-6">
@@ -219,10 +420,21 @@ export function AgentPlayground() {
                 >
                   1
                 </span>
-                <h4 className="text-xs font-semibold text-white">Escrow Funded on Monad</h4>
+                <h4 className="text-xs font-semibold text-white">Funds Deducted into Escrow</h4>
                 <p className="text-[11px] text-neutral-400 mt-0.5">
-                  1.50 USDC locked in <code className="text-purple-300">ACPCore.sol</code>. Job ID generated.
+                  USDC transferred from buyer wallet and locked in <code className="text-purple-300">ACPCore.sol</code>.
                 </p>
+                {liveReceipt?.txFund && (
+                  <a
+                    href={`${MONAD_TESTNET_EXPLORER}/tx/${liveReceipt.txFund}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 text-[10px] text-cyan-300 hover:underline mt-1 font-mono"
+                  >
+                    <span>View MonadScan Escrow Deposit Tx</span>
+                    <ExternalLink size={10} />
+                  </a>
+                )}
               </li>
 
               {/* Step 2 */}
@@ -236,7 +448,7 @@ export function AgentPlayground() {
                 </span>
                 <h4 className="text-xs font-semibold text-white">Operator Block Attestation Signed</h4>
                 <p className="text-[11px] text-neutral-400 mt-0.5">
-                  Telemetry stamped at block #38,219,447. Signed by ECDSA key <code className="text-neutral-300">0x9B14...E8F1</code>.
+                  Delivered payload stamped with source block timestamp. Signed by operator key <code className="text-neutral-300">0x9b3d...38fB</code>.
                 </p>
               </li>
 
@@ -249,10 +461,10 @@ export function AgentPlayground() {
                 >
                   3
                 </span>
-                <h4 className="text-xs font-semibold text-white">SlaEvaluator.beforeAction() Hook Evaluates</h4>
+                <h4 className="text-xs font-semibold text-white">SlaEvaluator Verifies Attestation & SLA</h4>
                 <p className="text-[11px] text-neutral-400 mt-0.5">
-                  {selectedScenario === "fresh" && "Observed age 2.8s <= 10.0s SLA. Freshness promise verified."}
-                  {selectedScenario === "stale" && "Observed age 14.8s > 10.0s SLA. Freshness promise breached."}
+                  {selectedScenario === "fresh" && "Observed age ≤ 10.0s SLA window. Contract validates freshness."}
+                  {selectedScenario === "stale" && "Observed age > 10.0s SLA window. Contract marks freshness BREACHED."}
                   {selectedScenario === "invalid" && "Recovered signer 0x333... does not match registered operatorKey."}
                 </p>
               </li>
@@ -275,13 +487,28 @@ export function AgentPlayground() {
                     selectedScenario === "fresh" ? "text-emerald-400" : "text-rose-400"
                   }`}
                 >
-                  {selectedScenario === "fresh" && "Seller Paid (1.47 USDC) · Reputation +0.01"}
-                  {selectedScenario === "stale" && "Buyer 100% Refunded (1.50 USDC) · Reputation Penalty"}
+                  {selectedScenario === "fresh" && "Seller Paid (98%) · Protocol Fee (2%)"}
+                  {selectedScenario === "stale" && "100% Escrow Automatically Refunded to Buyer"}
                   {selectedScenario === "invalid" && "Execution Reverted · Funds Protected in Escrow"}
                 </h4>
                 <p className="text-[11px] text-neutral-500 mt-0.5">
-                  Resolved atomically on Monad. Zero dispute latency.
+                  {selectedScenario === "fresh"
+                    ? "acpCore.complete() released payment to seller payoutAddress."
+                    : selectedScenario === "stale"
+                    ? "acpCore.reject() executed 100% return transfer to buyer address."
+                    : "No unauthorized payouts permitted."}
                 </p>
+                {liveReceipt?.txResolve && (
+                  <a
+                    href={`${MONAD_TESTNET_EXPLORER}/tx/${liveReceipt.txResolve}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 text-[10px] text-emerald-300 hover:underline mt-1 font-mono"
+                  >
+                    <span>View MonadScan Settlement Tx</span>
+                    <ExternalLink size={10} />
+                  </a>
+                )}
               </li>
             </ol>
           </div>

@@ -5,7 +5,6 @@ import {
   ADDRESSES,
   ERC20_ABI,
   MONAD_TESTNET_RPC,
-  MONAD_TESTNET_CHAIN_ID,
 } from "../lib/contracts";
 
 export interface UsdcBalanceState {

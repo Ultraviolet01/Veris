@@ -124,7 +124,7 @@ export const DataPayloadViewer: React.FC<DataPayloadViewerProps> = ({
       {/* Structured Telemetry Highlights */}
       <div className="p-3 space-y-2.5">
         {/* Sports Odds Highlight Card */}
-        {sportsScores && sportsOdds && (
+        {sportsScores && sportsOdds ? (
           <div className="p-2.5 rounded-xl bg-purple-950/20 border border-purple-500/20 text-xs">
             <div className="flex items-center justify-between text-[11px] mb-1.5">
               <span className="font-bold text-purple-200">
@@ -139,7 +139,7 @@ export const DataPayloadViewer: React.FC<DataPayloadViewerProps> = ({
               <div className="p-1.5 rounded-lg bg-black/40 border border-white/5">
                 <div className="text-zinc-400">Current Score</div>
                 <div className="text-xs font-bold text-white mt-0.5">
-                  Chiefs {sportsScores.chiefs} - {sportsScores["49ers"]} 49ers
+                  Chiefs {sportsScores?.chiefs ?? 0} - {sportsScores?.["49ers"] ?? 0} 49ers
                 </div>
               </div>
               <div className="p-1.5 rounded-lg bg-black/40 border border-white/5">
@@ -156,10 +156,10 @@ export const DataPayloadViewer: React.FC<DataPayloadViewerProps> = ({
               </div>
             </div>
           </div>
-        )}
+        ) : null}
 
         {/* Kuru CLOB Depth Highlight Card */}
-        {kuruBid !== undefined && kuruAsk !== undefined && (
+        {kuruBid !== undefined && kuruAsk !== undefined ? (
           <div className="p-2.5 rounded-xl bg-cyan-950/20 border border-cyan-500/20 text-xs">
             <div className="flex items-center justify-between text-[11px] mb-1.5">
               <span className="font-bold text-cyan-200">
@@ -184,10 +184,10 @@ export const DataPayloadViewer: React.FC<DataPayloadViewerProps> = ({
               </div>
             </div>
           </div>
-        )}
+        ) : null}
 
         {/* Aave APY Highlight Card */}
-        {aaveSupply && aaveBorrow && (
+        {aaveSupply && aaveBorrow ? (
           <div className="p-2.5 rounded-xl bg-indigo-950/20 border border-indigo-500/20 text-xs">
             <div className="flex items-center justify-between text-[11px] mb-1">
               <span className="font-bold text-indigo-200">Aave V3 USDC Rates</span>
@@ -210,10 +210,10 @@ export const DataPayloadViewer: React.FC<DataPayloadViewerProps> = ({
               </div>
             </div>
           </div>
-        )}
+        ) : null}
 
         {/* Polymarket Outcomes Highlight Card */}
-        {polyOutcomes && polyOutcomes.length > 0 && (
+        {polyOutcomes && polyOutcomes.length > 0 ? (
           <div className="p-2.5 rounded-xl bg-emerald-950/20 border border-emerald-500/20 text-xs">
             <div className="font-bold text-emerald-200 text-[11px] mb-1.5 truncate">
               {String((payload as Record<string, unknown>).market || "Prediction Market")}
@@ -232,7 +232,7 @@ export const DataPayloadViewer: React.FC<DataPayloadViewerProps> = ({
               ))}
             </div>
           </div>
-        )}
+        ) : null}
 
         {/* Expand/Collapse Raw JSON Payload */}
         <div className="pt-1">

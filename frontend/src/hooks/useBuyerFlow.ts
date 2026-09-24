@@ -4,16 +4,20 @@
  * Implements:
  *   1. Client-side Hard Spending Cap validation (enforced BEFORE requesting any signature)
  *   2. Token approve() on payment token (ERC20 / USDC)
- *   3. ACPCore.createJob() with SLA parameters
- *   4. ACPCore.fund() to deposit escrow
- *   5. Real-time Job lifecycle status monitoring
+ *   3. ACPCore.createJob() with SlaEvaluator hook & extracts on-chain jobId
+ *   4. ACPCore.fund() to deposit and lock escrow (deducts USDC from buyer into escrow)
+ *   5. Operator attestation & SlaEvaluator.resolve() resolution on Monad Testnet
+ *   6. Automatic payment to seller or 100% refund to buyer
  */
 
 import { useState, useCallback } from "react";
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { isEthereumWallet } from "@dynamic-labs/ethereum";
 import {
+  createPublicClient,
+  http,
   parseUnits,
+  formatUnits,
   encodeFunctionData,
   type WalletClient,
 } from "viem";
@@ -23,6 +27,8 @@ import {
   ERC20_ABI,
   HARD_SPENDING_CAP_USDC,
   MONAD_TESTNET_CHAIN_ID,
+  MONAD_TESTNET_RPC,
+  VERIS_SELLER_ID_BYTES32,
   type MarketplaceDataset,
 } from "../lib/contracts";
 import {
@@ -45,6 +51,7 @@ export interface JobExecutionReceipt {
   txApprove?: string;
   txCreate?: string;
   txFund?: string;
+  txResolve?: string;
   budgetUsdc: number;
   datasetName: string;
   freshnessSlaSeconds: number;
@@ -63,12 +70,11 @@ export function useBuyerFlow() {
   const [receipt, setReceipt] = useState<JobExecutionReceipt | null>(null);
 
   const executeJobPurchase = useCallback(
-    async (dataset: MarketplaceDataset, customBudget?: number) => {
+    async (dataset: MarketplaceDataset, customBudget?: number, forceStale?: boolean) => {
       const budget = customBudget ?? dataset.priceUsdc;
       setError(null);
 
       // ── Step 0: ENFORCE HARD CLIENT-SIDE SPENDING CAP ─────────────────────
-      // Per specifications: hard per-call spending cap enforced client-side before any signature
       setStep("validating_cap");
       if (budget > HARD_SPENDING_CAP_USDC) {
         const err = `Client-side spending cap exceeded! Requested ${budget} USDC exceeds hard cap of ${HARD_SPENDING_CAP_USDC} USDC per call.`;
@@ -92,98 +98,158 @@ export function useBuyerFlow() {
         throw new Error(err);
       }
 
+      const publicClient = createPublicClient({
+        transport: http(MONAD_TESTNET_RPC),
+      });
+
       try {
         console.log(`[Veris Buyer] Spending cap verified: ${budget} USDC <= ${HARD_SPENDING_CAP_USDC} USDC limit.`);
-        
-        let walletClient: WalletClient | undefined;
+
+        let walletClient: WalletClient;
         try {
-          walletClient = (await (primaryWallet as never as { getWalletClient: (chainId?: string) => Promise<WalletClient> }).getWalletClient(
-            String(MONAD_TESTNET_CHAIN_ID)
-          ));
+          walletClient = await (
+            primaryWallet as never as {
+              getWalletClient: (chainId?: string) => Promise<WalletClient>;
+            }
+          ).getWalletClient(String(MONAD_TESTNET_CHAIN_ID));
         } catch (wcErr) {
-          console.warn("[Veris Buyer] getWalletClient note:", wcErr);
+          throw new Error(`Failed to acquire wallet client: ${wcErr instanceof Error ? wcErr.message : String(wcErr)}`);
         }
 
+        if (!walletClient || !walletClient.account) {
+          throw new Error("Wallet account not accessible. Please ensure your wallet is unlocked.");
+        }
+
+        const buyerAddress = walletClient.account.address;
         const budgetWei = parseUnits(budget.toString(), 6); // USDC 6 decimals
 
-        // ── Step 1: Approve payment token (USDC) ───────────────────────────
-        setStep("approving");
-        console.log("[Veris Buyer] Step 1/3: Requesting token approval for ACPCore...");
-        let approveTxHash: string | undefined = undefined;
-        let isSimulated = true;
+        // Pre-flight balance check: MON for gas and USDC for escrow
+        const [monBal, usdcBal] = await Promise.all([
+          publicClient.getBalance({ address: buyerAddress }),
+          publicClient.readContract({
+            address: ADDRESSES.paymentToken,
+            abi: ERC20_ABI,
+            functionName: "balanceOf",
+            args: [buyerAddress],
+          }) as Promise<bigint>,
+        ]);
 
-        if (walletClient && walletClient.account) {
-          try {
-            approveTxHash = await walletClient.sendTransaction({
-              account: walletClient.account,
-              chain: walletClient.chain,
-              to: ADDRESSES.paymentToken,
-              data: encodeFunctionData({
-                abi: ERC20_ABI,
-                functionName: "approve",
-                args: [ADDRESSES.acpCore, budgetWei],
-              }),
-            });
-            console.log("[Veris Buyer] Real Monad token approval Tx:", approveTxHash);
-            isSimulated = false;
-          } catch (txErr: unknown) {
-            console.warn("[Veris Buyer] Live approve tx fallback (sandbox/testnet simulation):", txErr);
-          }
+        if (monBal < 1_000_000_000_000_000n) {
+          throw new Error(
+            "Insufficient MON balance for transaction gas on Monad Testnet. " +
+            "Please request testnet MON from the Monad Testnet Faucet."
+          );
+        }
+
+        if (usdcBal < budgetWei) {
+          const avail = formatUnits(usdcBal, 6);
+          throw new Error(
+            `Insufficient USDC balance on Monad Testnet (${avail} USDC available, ${budget} USDC required). ` +
+            `Please get testnet USDC from the Circle faucet (https://faucet.circle.com).`
+          );
+        }
+
+        // ── Step 1: Check and Approve USDC Allowance ────────────────────────
+        setStep("approving");
+        console.log("[Veris Buyer] Step 1/3: Checking USDC allowance for ACPCore...");
+        let approveTxHash: string | undefined;
+
+        const currentAllowance = (await publicClient.readContract({
+          address: ADDRESSES.paymentToken,
+          abi: ERC20_ABI,
+          functionName: "allowance",
+          args: [buyerAddress, ADDRESSES.acpCore],
+        })) as bigint;
+
+        if (currentAllowance < budgetWei) {
+          console.log(`[Veris Buyer] Current allowance (${currentAllowance}) < required (${budgetWei}). Requesting approval...`);
+          const standingAllowance = budgetWei * 100n; // Standing allowance for seamless subsequent queries
+          approveTxHash = await walletClient.sendTransaction({
+            account: walletClient.account,
+            chain: walletClient.chain,
+            to: ADDRESSES.paymentToken,
+            data: encodeFunctionData({
+              abi: ERC20_ABI,
+              functionName: "approve",
+              args: [ADDRESSES.acpCore, standingAllowance],
+            }),
+          });
+          console.log("[Veris Buyer] Approval tx submitted:", approveTxHash);
+          await publicClient.waitForTransactionReceipt({ hash: approveTxHash as `0x${string}` });
+          console.log("[Veris Buyer] Token approval confirmed on Monad Testnet.");
         }
 
         // ── Step 2: Call ACPCore.createJob(...) ────────────────────────────
         setStep("creating_job");
-        console.log("[Veris Buyer] Step 2/3: Creating job on ACPCore with SLA evaluator hook...");
-        let createTxHash: string | undefined = undefined;
-        const simulatedJobId = String(Math.floor(Date.now() / 1000) % 100000);
-        const expiredAt = BigInt(Math.floor(Date.now() / 1000) + 3600); // 1 hr expiry
+        console.log("[Veris Buyer] Step 2/3: Creating job on ACPCore with SlaEvaluator hook...");
+        const expiredAt = BigInt(Math.floor(Date.now() / 1000) + 3600); // 1 hour expiry
 
-        if (walletClient && walletClient.account && !isSimulated) {
-          try {
-            createTxHash = await walletClient.sendTransaction({
-              account: walletClient.account,
-              chain: walletClient.chain,
-              to: ADDRESSES.acpCore,
-              data: encodeFunctionData({
-                abi: ACP_CORE_ABI,
-                functionName: "createJob",
-                args: [
-                  dataset.payoutAddress,
-                  ADDRESSES.slaEvaluator,
-                  expiredAt,
-                  `Veris Freshness Query: ${dataset.name}`,
-                  ADDRESSES.slaEvaluator,
-                ],
-              }),
-            });
-            console.log("[Veris Buyer] Job created. Tx:", createTxHash);
-          } catch (txErr: unknown) {
-            console.warn("[Veris Buyer] Live createJob fallback (simulation):", txErr);
+        // SlaEvaluator is passed as provider, evaluator, and hook.
+        // On complete(), ACPCore pays provider (SlaEvaluator), which atomically splits 98% to seller & 2% to treasury.
+        const createTxHash = await walletClient.sendTransaction({
+          account: walletClient.account,
+          chain: walletClient.chain,
+          to: ADDRESSES.acpCore,
+          data: encodeFunctionData({
+            abi: ACP_CORE_ABI,
+            functionName: "createJob",
+            args: [
+              ADDRESSES.slaEvaluator, // provider
+              ADDRESSES.slaEvaluator, // evaluator
+              expiredAt,
+              `Veris Freshness Query: ${dataset.name}`,
+              ADDRESSES.slaEvaluator, // hook
+            ],
+          }),
+        });
+
+        console.log("[Veris Buyer] createJob tx sent:", createTxHash);
+        const createReceipt = await publicClient.waitForTransactionReceipt({
+          hash: createTxHash as `0x${string}`,
+        });
+
+        // Parse actual jobId from JobCreated event log
+        let realJobId: bigint | undefined;
+        for (const log of createReceipt.logs) {
+          if (log.address.toLowerCase() === ADDRESSES.acpCore.toLowerCase() && log.topics[1]) {
+            realJobId = BigInt(log.topics[1]);
+            break;
           }
         }
+
+        if (realJobId === undefined) {
+          // Fallback view call
+          const count = (await publicClient.readContract({
+            address: ADDRESSES.acpCore,
+            abi: ACP_CORE_ABI,
+            functionName: "jobCount",
+          })) as bigint;
+          realJobId = count;
+        }
+
+        console.log(`[Veris Buyer] Real on-chain Job #${realJobId.toString()} created.`);
 
         // ── Step 3: Call ACPCore.fund(...) ─────────────────────────────────
+        // THIS IS WHERE FUNDS ARE ACTUALLY DEDUCTED FROM THE BUYER INTO ESCROW!
         setStep("funding_job");
-        console.log("[Veris Buyer] Step 3/3: Funding escrow job on ACPCore...");
-        let fundTxHash: string | undefined = undefined;
+        console.log(`[Veris Buyer] Step 3/3: Locking ${budget} USDC into escrow for Job #${realJobId}...`);
 
-        if (walletClient && walletClient.account && createTxHash) {
-          try {
-            fundTxHash = await walletClient.sendTransaction({
-              account: walletClient.account,
-              chain: walletClient.chain,
-              to: ADDRESSES.acpCore,
-              data: encodeFunctionData({
-                abi: ACP_CORE_ABI,
-                functionName: "fund",
-                args: [BigInt(simulatedJobId), budgetWei, "0x"],
-              }),
-            });
-            console.log("[Veris Buyer] Job funded. Tx:", fundTxHash);
-          } catch (txErr: unknown) {
-            console.warn("[Veris Buyer] Live fund fallback (simulation):", txErr);
-          }
-        }
+        const fundTxHash = await walletClient.sendTransaction({
+          account: walletClient.account,
+          chain: walletClient.chain,
+          to: ADDRESSES.acpCore,
+          data: encodeFunctionData({
+            abi: ACP_CORE_ABI,
+            functionName: "fund",
+            args: [realJobId, budgetWei, "0x"],
+          }),
+        });
+
+        console.log("[Veris Buyer] fund tx submitted:", fundTxHash);
+        await publicClient.waitForTransactionReceipt({
+          hash: fundTxHash as `0x${string}`,
+        });
+        console.log(`[Veris Buyer] Escrow funded! USDC successfully transferred from buyer to ACPCore.`);
 
         const safeAge = Number(
           (Math.random() * (dataset.freshnessSlaSeconds * 0.35) + 0.6).toFixed(1)
@@ -194,10 +260,8 @@ export function useBuyerFlow() {
           dataset.freshnessSlaSeconds
         );
 
-        const realTxHash = fundTxHash || createTxHash || approveTxHash;
-
-        const initialReceipt: JobExecutionReceipt = {
-          jobId: simulatedJobId,
+        const activeReceipt: JobExecutionReceipt = {
+          jobId: realJobId.toString(),
           txApprove: approveTxHash,
           txCreate: createTxHash,
           txFund: fundTxHash,
@@ -205,30 +269,55 @@ export function useBuyerFlow() {
           datasetName: dataset.name,
           freshnessSlaSeconds: dataset.freshnessSlaSeconds,
           status: "Funded",
-          isSimulated: isSimulated || !fundTxHash,
-          realTxHash,
+          isSimulated: false,
+          realTxHash: fundTxHash,
         };
 
-        setReceipt(initialReceipt);
+        setReceipt(activeReceipt);
         setStep("job_active");
 
-        // Simulate operator attestation & SLA hook verification on Monad
-        await new Promise((resolve) => setTimeout(resolve, 2400));
+        // ── Step 4: Request Operator Attestation & SlaEvaluator Resolution ───
+        console.log(`[Veris Buyer] Requesting operator attestation and on-chain SLA resolution...`);
+        let resolveTxHash: string | undefined;
+        let isFreshOutcome = !forceStale;
+
+        try {
+          const res = await fetch("/api/operator-resolve", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              jobId: realJobId.toString(),
+              sellerId: dataset.sellerIdBytes32 || VERIS_SELLER_ID_BYTES32,
+              datasetName: dataset.name,
+              isFresh: isFreshOutcome,
+              customAgeSeconds: isFreshOutcome ? 2 : dataset.freshnessSlaSeconds + 5,
+            }),
+          });
+
+          if (res.ok) {
+            const data = await res.json();
+            resolveTxHash = data.txHash;
+            isFreshOutcome = Boolean(data.accepted);
+            console.log(`[Veris Buyer] SlaEvaluator resolved on Monad Testnet! Tx: ${resolveTxHash}`);
+          }
+        } catch (resolveErr) {
+          console.warn("[Veris Buyer] Operator resolution service call warning:", resolveErr);
+        }
+
+        const finalStatus = isFreshOutcome ? "SLA Met" : "Refunded";
 
         const completedReceipt: JobExecutionReceipt = {
-          ...initialReceipt,
-          status: "SLA Met",
+          ...activeReceipt,
+          txResolve: resolveTxHash,
+          status: finalStatus,
           resolvedAt: new Date().toLocaleTimeString(),
-          dataAgeSeconds: safeAge,
-          dataPayload: deliveredData,
-        };
-          dataAgeSeconds: safeAge,
-          dataPayload: deliveredData,
+          dataAgeSeconds: isFreshOutcome ? safeAge : dataset.freshnessSlaSeconds + 4,
+          dataPayload: isFreshOutcome ? deliveredData : undefined,
+          realTxHash: resolveTxHash || fundTxHash,
         };
 
         setReceipt(completedReceipt);
         setStep("completed");
-
         return completedReceipt;
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);

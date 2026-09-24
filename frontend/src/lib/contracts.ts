@@ -136,6 +136,77 @@ export const ACP_CORE_ABI = [
     inputs: [],
     outputs: [{ name: "", type: "uint256" }],
   },
+  {
+    type: "event",
+    name: "JobCreated",
+    inputs: [
+      { name: "jobId", type: "uint256", indexed: true },
+      { name: "client", type: "address", indexed: true },
+      { name: "evaluator", type: "address", indexed: true },
+      { name: "provider", type: "address", indexed: false },
+      { name: "hook", type: "address", indexed: false },
+      { name: "expiredAt", type: "uint256", indexed: false },
+    ],
+  },
+  {
+    type: "event",
+    name: "JobFunded",
+    inputs: [
+      { name: "jobId", type: "uint256", indexed: true },
+      { name: "amount", type: "uint256", indexed: false },
+    ],
+  },
+  {
+    type: "event",
+    name: "JobCompleted",
+    inputs: [
+      { name: "jobId", type: "uint256", indexed: true },
+      { name: "reason", type: "bytes", indexed: false },
+    ],
+  },
+  {
+    type: "event",
+    name: "JobRejected",
+    inputs: [
+      { name: "jobId", type: "uint256", indexed: true },
+      { name: "reason", type: "bytes", indexed: false },
+    ],
+  },
+] as const;
+
+// ── SlaEvaluator ABI ───────────────────────────────────────────────────────
+export const SLA_EVALUATOR_ABI = [
+  {
+    type: "function",
+    name: "resolve",
+    stateMutability: "nonpayable",
+    inputs: [
+      {
+        name: "att",
+        type: "tuple",
+        components: [
+          { name: "sellerId", type: "bytes32" },
+          { name: "jobId", type: "uint256" },
+          { name: "dataHash", type: "bytes32" },
+          { name: "sourceBlockNumber", type: "uint256" },
+          { name: "sourceBlockTimestamp", type: "uint256" },
+          { name: "signature", type: "bytes" },
+        ],
+      },
+      { name: "encodedAtt", type: "bytes" },
+    ],
+    outputs: [],
+  },
+  {
+    type: "event",
+    name: "JobResolved",
+    inputs: [
+      { name: "jobId", type: "uint256", indexed: true },
+      { name: "sellerId", type: "bytes32", indexed: true },
+      { name: "ageSeconds", type: "uint256", indexed: false },
+      { name: "accepted", type: "bool", indexed: false },
+    ],
+  },
 ] as const;
 
 // ── SellerRegistry ABI ─────────────────────────────────────────────────────
