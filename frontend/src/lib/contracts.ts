@@ -358,6 +358,7 @@ export interface MarketplaceDataset {
     | "On-Chain Oracles"
     | "NFT Protocol State"
     | "Perps & Derivatives"
+    | "Sports & Prediction"
     | "Network Telemetry";
   description: string;
   freshnessSlaSeconds: number;
@@ -485,5 +486,18 @@ export const FEATURED_DATASETS: MarketplaceDataset[] = [
     totalJobs: 4320,
     sourceChain: "Monad Testnet (Chain ID 10143)",
     payoutAddress: "0x90D423e4210ab233B27cb92a7e7Ac33f7bDa6b1e68",
+  },
+  {
+    sellerId: VERIS_SELLER_ID,
+    sellerIdBytes32: VERIS_SELLER_ID_BYTES32,
+    name: "Overtime Protocol Live Sports Odds & Spreads",
+    category: "Sports & Prediction",
+    description: "Decentralized on-chain sports betting odds, moneyline spreads, 2-way handicap lines, and fixture statuses attested from Overtime SportsAMM contracts on Arbitrum.",
+    freshnessSlaSeconds: 10,
+    priceUsdc: 0.35,
+    reliabilityBps: 9940, // 99.4%
+    totalJobs: 3840,
+    sourceChain: "Arbitrum One (Overtime SportsAMM)",
+    payoutAddress: "0x89C323e4210ab233B27cb92a7e7Ac33f7bDa6b1e67",
   },
 ];

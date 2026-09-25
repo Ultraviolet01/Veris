@@ -29,6 +29,7 @@ export const MarketplaceExplorer: React.FC<MarketplaceExplorerProps> = ({ onSele
     "On-Chain Oracles",
     "NFT Protocol State",
     "Perps & Derivatives",
+    "Sports & Prediction",
     "Network Telemetry",
   ];
 

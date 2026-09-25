@@ -241,6 +241,7 @@ export const DataMarketTerminal: React.FC<DataMarketTerminalProps> = ({ onSelect
     "On-Chain Oracles",
     "NFT Protocol State",
     "Perps & Derivatives",
+    "Sports & Prediction",
     "Network Telemetry",
   ];
 

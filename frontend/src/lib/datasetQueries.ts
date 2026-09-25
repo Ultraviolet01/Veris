@@ -168,6 +168,27 @@ export const DATASET_QUERY_CONFIGS: Record<string, DatasetQueryConfig> = {
       `GET /api/v1/telemetry/monad/mempool?metric=${encodeURIComponent(p1)}&sample=${encodeURIComponent(p2 || "realtime")}`,
     querySummary: (p1, p2) => `Monad node telemetry: ${p1} (${p2 || "Realtime"})`,
   },
+
+  // 10. Overtime Protocol Live Sports Odds & Spreads
+  overtime: {
+    queryTitle: "Select League / Sport & Betting Market",
+    param1Label: "League / Competition",
+    param1Options: [
+      "English Premier League (EPL)",
+      "UEFA Champions League",
+      "NBA Basketball",
+      "NFL American Football",
+    ],
+    param2Label: "Market Type",
+    param2Options: [
+      "Moneyline (1X2 / Winner)",
+      "Point Spread / Handicap (-1.5 / +1.5)",
+      "Totals (Over / Under 2.5 Goals)",
+    ],
+    endpointTemplate: (p1, p2) =>
+      `GET /api/v1/sports/overtime/odds?league=${encodeURIComponent(p1)}&market=${encodeURIComponent(p2 || "moneyline")}&chain=arbitrum`,
+    querySummary: (p1, p2) => `Overtime SportsAMM: ${p1} (${p2 || "Moneyline"})`,
+  },
 };
 
 export function getQueryConfigForDataset(datasetName: string): DatasetQueryConfig {
@@ -180,5 +201,6 @@ export function getQueryConfigForDataset(datasetName: string): DatasetQueryConfi
   if (lower.includes("curve") || lower.includes("stableswap")) return DATASET_QUERY_CONFIGS.curve;
   if (lower.includes("compound") || lower.includes("comet")) return DATASET_QUERY_CONFIGS.compound;
   if (lower.includes("perpl") || lower.includes("derivative")) return DATASET_QUERY_CONFIGS.perpl;
+  if (lower.includes("overtime") || lower.includes("sport") || lower.includes("bet") || lower.includes("odds")) return DATASET_QUERY_CONFIGS.overtime;
   return DATASET_QUERY_CONFIGS.monad;
 }

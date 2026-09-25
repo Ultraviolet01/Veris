@@ -309,6 +309,82 @@ export function generateDeliveredPayload(
     };
   }
 
+  // 10. Overtime Protocol Live Sports Odds & Spreads
+  if (lower.includes("overtime") || lower.includes("sport") || lower.includes("bet") || lower.includes("odds")) {
+    const league = param1 || "English Premier League (EPL)";
+    const marketType = param2 || "Moneyline (1X2 / Winner)";
+    const sourceBlock = 28941082; // Arbitrum One block
+
+    let fixture = "Arsenal FC vs Manchester City";
+    let homeTeam = "Arsenal FC";
+    let awayTeam = "Manchester City";
+    let homeOdds = 2.45;
+    let awayOdds = 2.90;
+    let drawOdds: number | string = 3.40;
+    let spreadLine = "Arsenal -0.5 @ 1.95 | Man City +0.5 @ 1.88";
+    let overUnderLine = "Over 2.5 Goals @ 1.82 | Under 2.5 Goals @ 2.02";
+
+    if (league.includes("Champions League")) {
+      fixture = "Real Madrid vs Bayern Munich";
+      homeTeam = "Real Madrid";
+      awayTeam = "Bayern Munich";
+      homeOdds = 2.20;
+      awayOdds = 3.10;
+      drawOdds = 3.60;
+      spreadLine = "Real Madrid -0.5 @ 1.90 | Bayern +0.5 @ 1.92";
+      overUnderLine = "Over 2.5 Goals @ 1.75 | Under 2.5 Goals @ 2.10";
+    } else if (league.includes("NBA")) {
+      fixture = "Boston Celtics vs Los Angeles Lakers";
+      homeTeam = "Boston Celtics";
+      awayTeam = "Los Angeles Lakers";
+      homeOdds = 1.62;
+      awayOdds = 2.38;
+      drawOdds = "N/A (2-Way Moneyline)";
+      spreadLine = "Celtics -5.5 @ 1.91 | Lakers +5.5 @ 1.91";
+      overUnderLine = "Over 224.5 Pts @ 1.90 | Under 224.5 Pts @ 1.92";
+    } else if (league.includes("NFL")) {
+      fixture = "Kansas City Chiefs vs San Francisco 49ers";
+      homeTeam = "KC Chiefs";
+      awayTeam = "SF 49ers";
+      homeOdds = 1.85;
+      awayOdds = 2.05;
+      drawOdds = "N/A (2-Way Moneyline)";
+      spreadLine = "Chiefs -1.5 @ 1.92 | 49ers +1.5 @ 1.90";
+      overUnderLine = "Over 47.5 Pts @ 1.91 | Under 47.5 Pts @ 1.91";
+    }
+
+    return {
+      source: "Overtime Protocol SportsAMM (SportsAMM.sol)",
+      sourceChain: "Arbitrum One (Chain ID: 42161)",
+      contractAddress: "0x170a5714112daEfF20E798565378021Cd28dA8E0",
+      sourceBlockNumber: sourceBlock,
+      sourceBlockTimestamp: sourceTimestamp,
+      league,
+      marketType,
+      fixture,
+      homeTeam,
+      awayTeam,
+      homeOdds,
+      homeImpliedProb: `${((1 / homeOdds) * 100).toFixed(1)}%`,
+      awayOdds,
+      awayImpliedProb: `${((1 / awayOdds) * 100).toFixed(1)}%`,
+      drawOdds,
+      spreadLine,
+      overUnderLine,
+      totalLiquidityUsdc: "$480,200",
+      matchStatus: "Scheduled (Kickoff in 45m)",
+      sportsOracleAttestation: "Chainlink Sports Oracle on Arbitrum",
+      queryParam1: league,
+      queryParam2: marketType,
+      endpointUrl: `/api/v1/sports/overtime/odds?league=${encodeURIComponent(league)}`,
+      observedDataAgeSeconds: safeAge,
+      slaWindowSeconds: slaSeconds,
+      slaVerdict: safeAge <= slaSeconds ? "VERIFIED_FRESH" : "SLA_BREACH",
+      attestedAt: now.toISOString(),
+      settlementLayer,
+    };
+  }
+
   // 9. Monad Sequencer Queue & Validator Mempool Telemetry
   const metric = param1 || "Base Fee Delta & Optimal Tip Estimator";
   const freq = param2 || "Block-by-Block (sub-second)";

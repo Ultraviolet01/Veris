@@ -15,6 +15,7 @@ import {
   BarChart3,
   Zap,
   Cpu,
+  Trophy,
 } from "lucide-react";
 import { MONAD_TESTNET_EXPLORER } from "../lib/contracts";
 
@@ -103,6 +104,14 @@ export function DeliveredDataView({
     nameLower.includes("mempool") ||
     nameLower.includes("sequencer") ||
     payload.mempoolPendingTxCount !== undefined;
+
+  const isOvertime =
+    nameLower.includes("overtime") ||
+    nameLower.includes("sport") ||
+    nameLower.includes("odds") ||
+    nameLower.includes("bet") ||
+    payload.homeOdds !== undefined ||
+    payload.fixture !== undefined;
 
   const handleCopyText = (text: string, keyId: string) => {
     navigator.clipboard.writeText(text);
@@ -830,6 +839,122 @@ export function DeliveredDataView({
             </div>
             <div className="text-[11px] text-zinc-400">
               Block Space: <strong className="text-emerald-400">{payload.blockSpaceUtilizationPct || "68.4%"}</strong> · Reorg Risk: <strong className="text-cyan-300">0.00%</strong>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── 10. OVERTIME SPORTS ODDS & SPREADS HERO ─────────────────────── */}
+      {isOvertime && (
+        <div className="rounded-2xl border-2 border-amber-500/50 bg-gradient-to-br from-[#2a1b05] via-[#150e04] to-[#04060e] p-5 shadow-2xl relative overflow-hidden">
+          <div className="flex items-center justify-between gap-3 pb-3 border-b border-white/10 flex-wrap">
+            <div className="flex items-center gap-2">
+              <span className="p-1.5 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                <Trophy className="w-4 h-4" />
+              </span>
+              <div>
+                <h4 className="text-base font-bold text-white flex items-center gap-2">
+                  <span>{payload.fixture || "Arsenal FC vs Manchester City"}</span>
+                  <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                    {payload.league || "English Premier League (EPL)"}
+                  </span>
+                </h4>
+                <p className="text-[11px] text-zinc-400">
+                  {payload.marketType || "Moneyline (1X2 / Winner)"} · Overtime SportsAMM Protocol
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() =>
+                handleCopyText(
+                  `${payload.fixture || "Match"}: ${payload.homeTeam || "Home"} (${payload.homeOdds ?? 2.45}) | ${payload.awayTeam || "Away"} (${payload.awayOdds ?? 2.90}) | Draw (${payload.drawOdds ?? 3.40}) | Vault Liquidity: ${payload.totalLiquidityUsdc || "$480,200"}`,
+                  "hero-overtime"
+                )
+              }
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-xs text-zinc-300 hover:text-white border border-white/10 transition-colors cursor-pointer"
+            >
+              {copiedKey === "hero-overtime" ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-amber-400" />}
+              <span>{copiedKey === "hero-overtime" ? "Copied" : "Copy Sports Odds"}</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 font-mono">
+            {/* Home Odds */}
+            <div className="rounded-xl border border-amber-500/40 bg-amber-950/25 p-3.5">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[10px] text-amber-400 uppercase font-bold truncate">
+                  {payload.homeTeam || "Home Team"}
+                </span>
+                <span className="text-[10px] text-zinc-500">1</span>
+              </div>
+              <span className="text-2xl sm:text-3xl font-black text-amber-300 block">
+                {payload.homeOdds ?? 2.45}
+              </span>
+              <span className="text-[10px] text-zinc-400 mt-1 block">
+                Implied: <strong className="text-white">{payload.homeImpliedProb || "40.8%"}</strong>
+              </span>
+            </div>
+
+            {/* Away Odds */}
+            <div className="rounded-xl border border-cyan-500/40 bg-cyan-950/25 p-3.5">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[10px] text-cyan-400 uppercase font-bold truncate">
+                  {payload.awayTeam || "Away Team"}
+                </span>
+                <span className="text-[10px] text-zinc-500">2</span>
+              </div>
+              <span className="text-2xl sm:text-3xl font-black text-cyan-300 block">
+                {payload.awayOdds ?? 2.90}
+              </span>
+              <span className="text-[10px] text-zinc-400 mt-1 block">
+                Implied: <strong className="text-white">{payload.awayImpliedProb || "34.5%"}</strong>
+              </span>
+            </div>
+
+            {/* Draw / Spread */}
+            <div className="rounded-xl border border-purple-500/40 bg-purple-950/25 p-3.5">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[10px] text-purple-400 uppercase font-bold">
+                  {typeof payload.drawOdds === "number" ? "Draw (X)" : "Spread / Line"}
+                </span>
+                <span className="text-[10px] text-zinc-500">X / Line</span>
+              </div>
+              <span className="text-2xl sm:text-3xl font-black text-purple-300 block">
+                {payload.drawOdds ?? 3.40}
+              </span>
+              <span className="text-[10px] text-zinc-400 mt-1 block truncate">
+                {payload.spreadLine ? "2-Way Handicap" : "Match Draw"}
+              </span>
+            </div>
+
+            {/* AMM Liquidity */}
+            <div className="rounded-xl border border-emerald-500/40 bg-emerald-950/25 p-3.5">
+              <span className="text-[10px] text-emerald-400 uppercase font-bold block mb-1">
+                AMM Liquidity
+              </span>
+              <span className="text-2xl sm:text-3xl font-black text-emerald-300 block">
+                {payload.totalLiquidityUsdc || "$480,200"}
+              </span>
+              <span className="text-[10px] text-zinc-400 mt-1 block">
+                Overtime Vault USDC
+              </span>
+            </div>
+          </div>
+
+          <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between text-xs text-zinc-400 flex-wrap gap-2 font-mono">
+            <div className="flex items-center gap-2">
+              <span className="text-zinc-500">SportsAMM Contract:</span>
+              <span className="text-zinc-300 font-semibold">{payload.contractAddress || "0x170a5714112daEfF20E798565378021Cd28dA8E0"}</span>
+              {sourceExplorer && (
+                <a href={sourceExplorer} target="_blank" rel="noreferrer" className="text-cyan-400 hover:text-cyan-300 inline-flex items-center gap-1">
+                  <ExternalLink size={11} />
+                </a>
+              )}
+            </div>
+            <div className="text-[11px] text-zinc-400">
+              Status: <strong className="text-amber-400">{payload.matchStatus || "Scheduled (Kickoff in 45m)"}</strong> · Attested: <strong className="text-emerald-400">{payload.sportsOracleAttestation || "Chainlink Sports Oracle"}</strong>
             </div>
           </div>
         </div>

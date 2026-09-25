@@ -35,6 +35,7 @@ function datasetToSlug(name: string): string {
   if (lower.includes("curve") || lower.includes("stableswap")) return "curve-stableswap";
   if (lower.includes("compound") || lower.includes("comet")) return "compound-v3-comet";
   if (lower.includes("perpl") || lower.includes("derivative")) return "perpl-derivatives";
+  if (lower.includes("overtime") || lower.includes("sport") || lower.includes("bet") || lower.includes("odds")) return "overtime-sports";
   if (lower.includes("monad") || lower.includes("mempool") || lower.includes("sequencer")) return "monad-sequencer-telemetry";
   return lower.replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 }
