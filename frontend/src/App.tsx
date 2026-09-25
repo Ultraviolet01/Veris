@@ -173,8 +173,14 @@ export function VerisApp() {
 
       {/* Seller Studio Modal */}
       {showSellerStudioModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-          <div className="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-3xl border border-white/10 bg-[#08090e] p-6 shadow-2xl">
+        <div
+          onClick={() => setShowSellerStudioModal(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md overflow-y-auto cursor-pointer"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-3xl border border-white/10 bg-[#08090e] p-6 shadow-2xl cursor-default my-auto scrollbar-thin"
+          >
             <div className="flex items-center justify-between pb-4 border-b border-white/10 mb-6">
               <div>
                 <h3 className="text-xl font-medium text-white">Seller Studio Console</h3>
