@@ -4,21 +4,18 @@ import { useBuyerFlow } from "../hooks/useBuyerFlow";
 import { useUsdcBalance } from "../hooks/useUsdcBalance";
 import {
   HARD_SPENDING_CAP_USDC,
-  MONAD_TESTNET_EXPLORER,
   type MarketplaceDataset,
 } from "../lib/contracts";
 import {
   X,
   ShieldAlert,
   ShieldCheck,
-  CheckCircle2,
-  Clock,
   ExternalLink,
   RefreshCw,
   AlertCircle,
   Zap,
 } from "lucide-react";
-import { DataPayloadViewer } from "./DataPayloadViewer";
+import { OpenBookStepper, OpenBookTxCard } from "./OpenBookReceipt";
 
 interface BuyerModalProps {
   dataset: MarketplaceDataset | null;
@@ -32,6 +29,7 @@ export const BuyerModal: React.FC<BuyerModalProps> = ({ dataset, onClose }) => {
   const [customBudget, setCustomBudget] = useState<string>(
     dataset ? dataset.priceUsdc.toString() : "0.25"
   );
+  const [simulateStale, setSimulateStale] = useState<boolean>(false);
 
   if (!dataset) return null;
 
@@ -41,7 +39,7 @@ export const BuyerModal: React.FC<BuyerModalProps> = ({ dataset, onClose }) => {
   const handlePurchase = async () => {
     if (isOverCap || budgetNumber <= 0) return;
     try {
-      await executeJobPurchase(dataset, budgetNumber);
+      await executeJobPurchase(dataset, budgetNumber, simulateStale);
     } catch {
       // Error handled in hook state
     }
@@ -149,6 +147,20 @@ export const BuyerModal: React.FC<BuyerModalProps> = ({ dataset, onClose }) => {
             </span>
           </div>
 
+          {/* OpenBook-Style "or make it fail" testing toggle */}
+          <div className="mt-2.5 flex items-center justify-between text-xs">
+            <label className="inline-flex items-center gap-2 cursor-pointer select-none text-neutral-400 hover:text-neutral-200 transition-colors">
+              <input
+                type="checkbox"
+                checked={simulateStale}
+                disabled={step !== "idle" && step !== "error"}
+                onChange={(e) => setSimulateStale(e.target.checked)}
+                className="w-3.5 h-3.5 rounded border-white/20 bg-neutral-900 text-purple-600 focus:ring-0 cursor-pointer"
+              />
+              <span>or make it fail: simulate stale data (&gt; {dataset.freshnessSlaSeconds}s) to verify 100% refund</span>
+            </label>
+          </div>
+
           {isOverCap && (
             <p className="text-xs text-rose-400 mt-2 flex items-center gap-1.5 font-medium">
               <ShieldAlert className="w-4 h-4 shrink-0" />
@@ -175,74 +187,13 @@ export const BuyerModal: React.FC<BuyerModalProps> = ({ dataset, onClose }) => {
           )}
         </div>
 
-        {/* Stepper Progress */}
+        {/* OpenBook Canonical Stepper Progress */}
         {step !== "idle" && (
-          <div className="bg-black/50 border border-white/10 rounded-xl p-4 mb-6 space-y-3">
-            <div className="text-xs font-bold text-zinc-300 uppercase tracking-wider mb-2">
-              Execution Progress
+          <div className="mb-5">
+            <div className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider mb-1 font-mono">
+              Escrow Lifecycle Stepper
             </div>
-
-            {/* Step 1: Cap check */}
-            <div className="flex items-center gap-3 text-xs">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span className="text-zinc-200">1. Client spending cap validated (≤ ${HARD_SPENDING_CAP_USDC} USDC)</span>
-            </div>
-
-            {/* Step 2: Approve */}
-            <div className="flex items-center gap-3 text-xs">
-              {step === "approving" ? (
-                <RefreshCw className="w-4 h-4 text-[#836ef9] animate-spin shrink-0" />
-              ) : step === "validating_cap" ? (
-                <div className="w-4 h-4 rounded-full border border-zinc-600 shrink-0" />
-              ) : (
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              )}
-              <span className={step === "approving" ? "text-white font-semibold" : "text-zinc-400"}>
-                2. Approve USDC payment token
-              </span>
-            </div>
-
-            {/* Step 3: Create Order */}
-            <div className="flex items-center gap-3 text-xs">
-              {step === "creating_job" ? (
-                <RefreshCw className="w-4 h-4 text-[#836ef9] animate-spin shrink-0" />
-              ) : step === "funding_job" || step === "job_active" || step === "completed" ? (
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              ) : (
-                <div className="w-4 h-4 rounded-full border border-zinc-600 shrink-0" />
-              )}
-              <span className={step === "creating_job" ? "text-white font-semibold" : "text-zinc-400"}>
-                3. Create verification order on Monad
-              </span>
-            </div>
-
-            {/* Step 4: Authorize Payment */}
-            <div className="flex items-center gap-3 text-xs">
-              {step === "funding_job" ? (
-                <RefreshCw className="w-4 h-4 text-[#836ef9] animate-spin shrink-0" />
-              ) : step === "job_active" || step === "completed" ? (
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              ) : (
-                <div className="w-4 h-4 rounded-full border border-zinc-600 shrink-0" />
-              )}
-              <span className={step === "funding_job" ? "text-white font-semibold" : "text-zinc-400"}>
-                4. Authorize settlement payment
-              </span>
-            </div>
-
-            {/* Step 5: SLA Resolution */}
-            <div className="flex items-center gap-3 text-xs">
-              {step === "job_active" ? (
-                <Clock className="w-4 h-4 text-cyan-400 animate-spin shrink-0" />
-              ) : step === "completed" ? (
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              ) : (
-                <div className="w-4 h-4 rounded-full border border-zinc-600 shrink-0" />
-              )}
-              <span className={step === "completed" ? "text-emerald-300 font-semibold" : "text-zinc-400"}>
-                5. Operator Attestation & SLA Hook Resolution
-              </span>
-            </div>
+            <OpenBookStepper currentStep={step} receipt={receipt} isStaleOutcome={simulateStale} />
           </div>
         )}
 
@@ -251,97 +202,30 @@ export const BuyerModal: React.FC<BuyerModalProps> = ({ dataset, onClose }) => {
           <div className="bg-rose-500/10 border border-rose-500/30 rounded-xl p-3.5 mb-5 text-xs text-rose-300 flex items-start gap-2">
             <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
             <div>
-              <span className="font-semibold block">Transaction Failed</span>
-              <span>{error}</span>
+              <span className="font-semibold block font-mono">Transaction Reverted</span>
+              <span className="font-mono text-[11px]">{error}</span>
             </div>
           </div>
         )}
 
-        {/* Completed Receipt & Delivered Data Payload Card */}
+        {/* OpenBook Rubber-Stamp Tx Receipt & KvBlock Card */}
         {receipt && step === "completed" && (
-          <div className="space-y-3 mb-6 animate-in fade-in">
-            <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4 text-xs text-emerald-200 space-y-2">
-              <div className="flex items-center justify-between font-bold text-white text-sm">
-                <span className="flex items-center gap-1.5 text-emerald-400">
-                  <CheckCircle2 className="w-4 h-4" />
-                  Purchase Complete · SLA Verified Fresh!
-                </span>
-                <span>Order #{receipt.jobId}</span>
-              </div>
-              <p className="text-zinc-300">
-                Data attestation validated against Monad block timestamp. Data was genuinely fresh (within {receipt.freshnessSlaSeconds}s). Seller received payment; reputation score incremented.
-              </p>
-              {receipt.realTxHash ? (
-                <div className="space-y-1.5 pt-1">
-                  {receipt.txFund && (
-                    <div className="flex items-center justify-between text-[11px] font-mono">
-                      <span className="text-zinc-400">1. Escrow Funded:</span>
-                      <a
-                        href={`${MONAD_TESTNET_EXPLORER}/tx/${receipt.txFund}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1 text-[#a797ff] hover:underline"
-                      >
-                        <span>View Escrow Deposit Tx</span>
-                        <ExternalLink className="w-3 h-3" />
-                      </a>
-                    </div>
-                  )}
-                  {receipt.txResolve && (
-                    <div className="flex items-center justify-between text-[11px] font-mono">
-                      <span className="text-zinc-400">2. SlaEvaluator Resolution:</span>
-                      <a
-                        href={`${MONAD_TESTNET_EXPLORER}/tx/${receipt.txResolve}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1 text-emerald-400 hover:underline"
-                      >
-                        <span>View Settlement Payout Tx</span>
-                        <ExternalLink className="w-3 h-3" />
-                      </a>
-                    </div>
-                  )}
-                  {!receipt.txFund && !receipt.txResolve && (
-                    <div className="flex items-center justify-between">
-                      <a
-                        href={`${MONAD_TESTNET_EXPLORER}/tx/${receipt.realTxHash}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1 text-[#a797ff] hover:underline font-mono text-[11px]"
-                      >
-                        <span>View MonadScan On-Chain Tx</span>
-                        <ExternalLink className="w-3 h-3" />
-                      </a>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="text-[11px] text-amber-300 font-mono pt-1 flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                  <span>Demo Sandbox Mode (Zero funds deducted)</span>
-                </div>
-              )}
-            </div>
-
-            {/* Delivered Data Payload */}
-            {receipt.dataPayload && (
-              <DataPayloadViewer
-                datasetName={dataset.name}
-                payload={receipt.dataPayload}
-                jobId={receipt.jobId}
-                dataAgeSeconds={receipt.dataAgeSeconds}
-                slaSeconds={receipt.freshnessSlaSeconds}
-              />
-            )}
+          <div className="mb-6 animate-in fade-in">
+            <OpenBookTxCard
+              receipt={receipt}
+              datasetName={dataset.name}
+              budgetUsdc={budgetNumber}
+              freshnessSlaSeconds={dataset.freshnessSlaSeconds}
+            />
           </div>
         )}
 
         {/* Action Button */}
-        <div className="flex items-center justify-end gap-3">
+        <div className="flex items-center justify-end gap-3 pt-2 border-t border-white/5">
           <button
             type="button"
             onClick={handleClose}
-            className="btn-secondary text-xs py-2.5 px-4"
+            className="btn-secondary text-xs py-2.5 px-4 cursor-pointer"
           >
             {step === "completed" ? "Close" : "Cancel"}
           </button>
@@ -351,18 +235,27 @@ export const BuyerModal: React.FC<BuyerModalProps> = ({ dataset, onClose }) => {
               id="buyer-confirm-btn"
               disabled={isOverCap || budgetNumber <= 0 || (step !== "idle" && step !== "error") || !isLoggedIn}
               onClick={handlePurchase}
-              className="btn-primary text-xs py-2.5 px-5 flex items-center gap-2"
+              className={`text-xs py-2.5 px-5 flex items-center gap-2 rounded-xl font-semibold transition-all cursor-pointer shadow-lg ${
+                simulateStale
+                  ? "bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white shadow-amber-950/40"
+                  : "btn-primary"
+              }`}
             >
               {step !== "idle" && step !== "error" ? (
                 <>
                   <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                  <span>Processing Purchase...</span>
+                  <span>Processing Escrow & Verification...</span>
                 </>
               ) : !isLoggedIn ? (
                 <span>Sign in to Purchase</span>
+              ) : simulateStale ? (
+                <>
+                  <span>Buy Stale Query (${budgetNumber.toFixed(2)} USDC) · Watch Refund</span>
+                  <Zap className="w-3.5 h-3.5" />
+                </>
               ) : (
                 <>
-                  <span>Confirm & Buy (${budgetNumber.toFixed(2)} USDC)</span>
+                  <span>Confirm & Deduct Escrow (${budgetNumber.toFixed(2)} USDC)</span>
                   <Zap className="w-3.5 h-3.5" />
                 </>
               )}

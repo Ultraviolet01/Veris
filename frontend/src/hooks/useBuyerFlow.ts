@@ -56,6 +56,11 @@ export interface JobExecutionReceipt {
   datasetName: string;
   freshnessSlaSeconds: number;
   status: "Funded" | "Attestation Received" | "SLA Met" | "Refunded";
+  verdict?: "APPROVED" | "REFUNDED" | "REFUSED";
+  outcome?: "settled" | "refunded";
+  refundReason?: string;
+  sellerAmountUsdc?: number;
+  treasuryAmountUsdc?: number;
   resolvedAt?: string;
   dataAgeSeconds?: number;
   dataPayload?: DeliveredPayload;
@@ -305,13 +310,24 @@ export function useBuyerFlow() {
         }
 
         const finalStatus = isFreshOutcome ? "SLA Met" : "Refunded";
+        const verdict = isFreshOutcome ? "APPROVED" : "REFUNDED";
+        const outcome = isFreshOutcome ? "settled" : "refunded";
+        const finalAge = isFreshOutcome ? safeAge : dataset.freshnessSlaSeconds + 4.8;
+        const refundReason = !isFreshOutcome
+          ? `SlaNotMet: observed data age (${finalAge.toFixed(1)}s) > ${dataset.freshnessSlaSeconds}.0s SLA window`
+          : undefined;
 
         const completedReceipt: JobExecutionReceipt = {
           ...activeReceipt,
           txResolve: resolveTxHash,
           status: finalStatus,
+          verdict,
+          outcome,
+          refundReason,
+          sellerAmountUsdc: isFreshOutcome ? Number((budget * 0.98).toFixed(4)) : 0,
+          treasuryAmountUsdc: isFreshOutcome ? Number((budget * 0.02).toFixed(4)) : 0,
           resolvedAt: new Date().toLocaleTimeString(),
-          dataAgeSeconds: isFreshOutcome ? safeAge : dataset.freshnessSlaSeconds + 4,
+          dataAgeSeconds: finalAge,
           dataPayload: isFreshOutcome ? deliveredData : undefined,
           realTxHash: resolveTxHash || fundTxHash,
         };

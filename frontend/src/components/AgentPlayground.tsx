@@ -21,6 +21,8 @@ import {
   MONAD_TESTNET_EXPLORER,
   ADDRESSES,
 } from "../lib/contracts";
+import { OpenBookTxCard } from "./OpenBookReceipt";
+import type { JobExecutionReceipt } from "../hooks/useBuyerFlow";
 
 export function AgentPlayground() {
   const [selectedScenario, setSelectedScenario] = useState<"fresh" | "stale" | "invalid">("fresh");
@@ -28,6 +30,7 @@ export function AgentPlayground() {
   const [executionMode, setExecutionMode] = useState<"live" | "simulated">("simulated");
   const [isRunning, setIsRunning] = useState<boolean>(false);
   const [currentStep, setCurrentStep] = useState<number>(0);
+  const [activeRightTab, setActiveRightTab] = useState<"receipt" | "json">("receipt");
   const [copied, setCopied] = useState<boolean>(false);
   const [liveReceipt, setLiveReceipt] = useState<{
     jobId?: string;
@@ -179,6 +182,111 @@ export function AgentPlayground() {
         2
       );
     }
+  };
+
+  const getReceiptForPlayground = (): JobExecutionReceipt => {
+    const datasetTitle =
+      selectedDataset === "monad-dex-prices"
+        ? "Kuru CLOB DEX Best Bid/Ask & Depth"
+        : selectedDataset === "aave-v3-rates"
+        ? "Aave V3 Lending Rates & Liquidity APY"
+        : "Monad Sequencer Queue & MEV Risk";
+
+    if (liveReceipt && liveReceipt.jobId) {
+      const isMet = liveReceipt.status === "SLA Met";
+      return {
+        jobId: String(liveReceipt.jobId),
+        datasetName: datasetTitle,
+        budgetUsdc: 0.25,
+        freshnessSlaSeconds: 10,
+        status: isMet ? "SLA Met" : "Refunded",
+        verdict: isMet ? "APPROVED" : "REFUNDED",
+        outcome: isMet ? "settled" : "refunded",
+        refundReason: !isMet
+          ? `SlaNotMet: observed data age (${(liveReceipt.ageSeconds ?? 15.2).toFixed(1)}s) > 10.0s SLA`
+          : undefined,
+        txFund: liveReceipt.txFund,
+        txResolve: liveReceipt.txResolve,
+        sellerAmountUsdc: isMet ? 0.245 : 0,
+        treasuryAmountUsdc: isMet ? 0.005 : 0,
+        dataAgeSeconds: liveReceipt.ageSeconds ?? (isMet ? 2.4 : 15.2),
+        isSimulated: false,
+        dataPayload: {
+          sourceBlockNumber: 38219447,
+          timestamp: Math.floor(Date.now() / 1000) - (isMet ? 2 : 15),
+          feed: selectedDataset,
+          latencyMs: isMet ? 2400 : 15200,
+          data: isMet ? { bid: "1.0421 MON", ask: "1.0424 MON", depth: "$420,000" } : { stale: true },
+        } as any,
+      };
+    }
+
+    if (selectedScenario === "fresh") {
+      return {
+        jobId: "194",
+        datasetName: datasetTitle,
+        budgetUsdc: 1.50,
+        freshnessSlaSeconds: 10,
+        status: "SLA Met",
+        verdict: "APPROVED",
+        outcome: "settled",
+        txFund: "0x172371ebd0832f4078c9d1c68b89c23a517ca21b365c1c6dba906a95b7c73bba",
+        txResolve: "0x8f21e4a7b9c1d0e3a5f78901234567890abcdef138218104a7b9c1d0e3a5f789",
+        sellerAmountUsdc: 1.47,
+        treasuryAmountUsdc: 0.03,
+        dataAgeSeconds: 2.8,
+        isSimulated: true,
+        dataPayload: {
+          sourceBlockNumber: 38219447,
+          timestamp: 1727083458,
+          feed: selectedDataset,
+          latencyMs: 2800,
+          data: { bid: "1.0421 MON", ask: "1.0424 MON", depth: "$420,000" },
+        } as any,
+      };
+    }
+
+    if (selectedScenario === "stale") {
+      return {
+        jobId: "195",
+        datasetName: datasetTitle,
+        budgetUsdc: 1.50,
+        freshnessSlaSeconds: 10,
+        status: "Refunded",
+        verdict: "REFUNDED",
+        outcome: "refunded",
+        refundReason: "SlaNotMet: observed data age (14.8s) exceeded 10.0s SLA floor",
+        txFund: "0x172371ebd0832f4078c9d1c68b89c23a517ca21b365c1c6dba906a95b7c73bba",
+        txResolve: "0x9c4f1e0e80d991656243384a1e9dd62f4dc1e0e80d991656243384a1e9dd62f4",
+        sellerAmountUsdc: 0,
+        treasuryAmountUsdc: 0,
+        dataAgeSeconds: 14.8,
+        isSimulated: true,
+        dataPayload: {
+          sourceBlockNumber: 38218104,
+          timestamp: 1727083440,
+          feed: selectedDataset,
+          latencyMs: 14800,
+          data: { bid: "1.0390 MON", ask: "1.0450 MON", stale: true },
+        } as any,
+      };
+    }
+
+    return {
+      jobId: "196",
+      datasetName: datasetTitle,
+      budgetUsdc: 1.50,
+      freshnessSlaSeconds: 10,
+      status: "Refunded",
+      verdict: "REFUSED",
+      outcome: "refunded",
+      refundReason: "InvalidSignature: recovered operatorKey does not match SellerRegistry",
+      txFund: "0x172371ebd0832f4078c9d1c68b89c23a517ca21b365c1c6dba906a95b7c73bba",
+      sellerAmountUsdc: 0,
+      treasuryAmountUsdc: 0,
+      dataAgeSeconds: 3.1,
+      isSimulated: true,
+    };
   };
 
   const copyToClipboard = () => {
@@ -514,41 +622,63 @@ export function AgentPlayground() {
           </div>
         </div>
 
-        {/* Right Column: Cryptographic Proof Object JSON */}
-        <div className="lg:col-span-6">
-          <div className="glass-panel p-6 sm:p-7 rounded-2xl border border-white/10 relative overflow-hidden shadow-2xl">
-            <div className="flex items-center justify-between pb-4 border-b border-white/5 mb-4">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-white font-mono">Proof Receipt JSON</span>
-                <span
-                  className={`text-[10px] font-mono px-2 py-0.5 rounded-full ${
-                    selectedScenario === "fresh"
-                      ? "bg-emerald-950/40 border border-emerald-500/30 text-emerald-400"
-                      : "bg-rose-950/40 border border-rose-500/30 text-rose-400"
-                  }`}
-                >
-                  {selectedScenario === "fresh" ? "200 PROOF_VERIFIED" : "400 SLA_BREACH"}
-                </span>
-              </div>
-
+        {/* Right Column: OpenBook Rubber-Stamp Receipt & Proof Object */}
+        <div className="lg:col-span-6 space-y-4">
+          {/* View Switcher: Rubber-Stamp Receipt vs Raw Proof JSON */}
+          <div className="flex items-center justify-between pb-2 border-b border-white/5">
+            <div className="flex items-center gap-1.5 p-1 rounded-xl bg-neutral-900 border border-white/10">
               <button
-                onClick={copyToClipboard}
-                className="flex items-center gap-1.5 text-xs text-neutral-400 hover:text-white bg-white/5 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+                type="button"
+                onClick={() => setActiveRightTab("receipt")}
+                className={`px-3 py-1 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer ${
+                  activeRightTab === "receipt"
+                    ? "bg-purple-600 text-white shadow-sm"
+                    : "text-neutral-400 hover:text-white"
+                }`}
               >
-                {copied ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
-                <span>{copied ? "Copied" : "Copy JSON"}</span>
+                📜 Rubber-Stamp Receipt
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveRightTab("json")}
+                className={`px-3 py-1 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer ${
+                  activeRightTab === "json"
+                    ? "bg-purple-600 text-white shadow-sm"
+                    : "text-neutral-400 hover:text-white"
+                }`}
+              >
+                {"{ }"} Raw Proof JSON
               </button>
             </div>
 
-            <pre className="rounded-xl bg-[#030407] border border-white/5 p-4 font-mono text-xs leading-relaxed text-purple-200 overflow-x-auto max-h-[460px] overflow-y-auto">
-              <code>{getProofJson()}</code>
-            </pre>
-
-            <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-[11px] text-neutral-500 font-mono">
-              <span>Chain ID: 10143 (Monad Testnet)</span>
-              <span>Evaluated by SlaEvaluator.sol</span>
-            </div>
+            <button
+              onClick={copyToClipboard}
+              className="flex items-center gap-1.5 text-xs text-neutral-400 hover:text-white bg-white/5 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+            >
+              {copied ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
+              <span>{copied ? "Copied" : "Copy JSON"}</span>
+            </button>
           </div>
+
+          {activeRightTab === "receipt" ? (
+            <OpenBookTxCard
+              receipt={getReceiptForPlayground()}
+              datasetName={getReceiptForPlayground().datasetName}
+              budgetUsdc={getReceiptForPlayground().budgetUsdc}
+              freshnessSlaSeconds={10}
+            />
+          ) : (
+            <div className="glass-panel p-6 sm:p-7 rounded-2xl border border-white/10 relative overflow-hidden shadow-2xl">
+              <pre className="rounded-xl bg-[#030407] border border-white/5 p-4 font-mono text-xs leading-relaxed text-purple-200 overflow-x-auto max-h-[460px] overflow-y-auto">
+                <code>{getProofJson()}</code>
+              </pre>
+
+              <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-[11px] text-neutral-500 font-mono">
+                <span>Chain ID: 10143 (Monad Testnet)</span>
+                <span>Evaluated by SlaEvaluator.sol</span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </section>
