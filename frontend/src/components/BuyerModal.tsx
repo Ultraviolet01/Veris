@@ -248,16 +248,8 @@ export const BuyerModal: React.FC<BuyerModalProps> = ({ dataset, onClose }) => {
                 </>
               ) : !isLoggedIn ? (
                 <span>Sign in to Purchase</span>
-              ) : simulateStale ? (
-                <>
-                  <span>Buy Stale Query (${budgetNumber.toFixed(2)} USDC) · Watch Refund</span>
-                  <Zap className="w-3.5 h-3.5" />
-                </>
               ) : (
-                <>
-                  <span>Confirm & Deduct Escrow (${budgetNumber.toFixed(2)} USDC)</span>
-                  <Zap className="w-3.5 h-3.5" />
-                </>
+                <span>Confirm</span>
               )}
             </button>
           )}
