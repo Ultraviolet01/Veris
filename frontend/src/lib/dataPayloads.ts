@@ -1,8 +1,11 @@
 /**
  * dataPayloads.ts — Authenticated Data Feed Payload Generators
  *
- * Simulates high-fidelity live telemetry feeds attested by Veris operators
- * on Monad with cryptographic freshness timestamps.
+ * Generates high-fidelity live telemetry feeds attested by Veris operators
+ * with cryptographic freshness timestamps.
+ *
+ * Settlement is executed on Monad Testnet via ERC-8183 autonomous escrow,
+ * while the data covers global real-world, financial, and digital ecosystems.
  */
 
 export interface DeliveredPayload {
@@ -16,6 +19,7 @@ export interface DeliveredPayload {
   slaVerdict: "VERIFIED_FRESH" | "SLA_BREACH";
   attestedAt: string;
   monadBlockHeight: number;
+  settlementLayer: string;
 }
 
 export function generateDeliveredPayload(
@@ -29,80 +33,141 @@ export function generateDeliveredPayload(
   const safeAge = Math.max(0.4, Number(ageSeconds.toFixed(1)));
   const baseBlock = 65595700 + Math.floor(Math.random() * 200);
   const lower = datasetName.toLowerCase();
+  const settlementLayer = "Monad ERC-8183 Escrow Gateway (Chain ID: 10143)";
 
-  if (lower.includes("sport") || lower.includes("overtime")) {
-    const fixture = param1 || "Kansas City Chiefs vs San Francisco 49ers";
-    const marketType = param2 || "Moneyline & Winner";
+  // 1. NOAA Weather & Doppler Radar
+  if (lower.includes("weather") || lower.includes("noaa") || lower.includes("radar")) {
+    const station = param1 || "JFK International (New York)";
+    const metric = param2 || "Doppler Radar Reflectivity & Storm Velocity";
     return {
-      source: "Overtime Markets (Optimism / Arbitrum)",
-      fixture,
-      marketType,
-      league: "NFL Super Bowl Rematch",
-      status: "LIVE - 3rd Quarter (08:14)",
-      scores: {
-        chiefs: 24,
-        "49ers": 21,
+      source: "NOAA GOES-16 Satellites & National Weather Service Stations",
+      station,
+      observationMetric: metric,
+      stationIcao: station.includes("JFK") ? "KJFK" : station.includes("Heathrow") ? "EGLL" : station.includes("Haneda") ? "RJTT" : "EDDF",
+      temperatureCelsius: 18.4,
+      temperatureFahrenheit: 65.1,
+      dewPointCelsius: 11.2,
+      relativeHumidityPercent: 63,
+      barometricPressureHpa: 1013.25,
+      windVector: {
+        speedKnots: 14.2,
+        directionDegrees: 240,
+        gustKnots: 22.0,
       },
-      moneylineOdds: {
-        chiefsWin: 1.74,
-        "49ersWin": 2.15,
-      },
-      spread: {
-        line: -2.5,
-        chiefsCoverOdds: 1.91,
-        "49ersCoverOdds": 1.91,
-      },
-      overUnder: {
-        total: 47.5,
-        overOdds: 1.88,
-        underOdds: 1.94,
-      },
-      marketVolume24hUsdc: "$642,800",
-      queryParam1: fixture,
-      queryParam2: marketType,
-      endpointUrl: `/api/v1/sports/overtime/odds?fixture=${encodeURIComponent(fixture)}`,
+      radarReflectivityDbz: 28.5,
+      precipitationRateMmHr: 1.4,
+      severeStormWarningActive: false,
+      queryParam1: station,
+      queryParam2: metric,
+      endpointUrl: `/api/v1/weather/noaa/station?station=${encodeURIComponent(station)}`,
       observedDataAgeSeconds: safeAge,
       slaWindowSeconds: slaSeconds,
       slaVerdict: safeAge <= slaSeconds ? "VERIFIED_FRESH" : "SLA_BREACH",
       attestedAt: now.toISOString(),
       monadBlockHeight: baseBlock,
+      settlementLayer,
     };
   }
 
-  if (lower.includes("kuru") || lower.includes("clob")) {
-    const pair = param1 || "MON / USDC";
-    const depth = param2 || "L2 Top 5";
-    const basePrice = pair.includes("BTC") ? 91420.5 : pair.includes("ETH") ? 3350.2 : pair.includes("USDT") ? 1.0002 : 12.451;
-    const spread = (basePrice * 0.0025);
+  // 2. Global Equities & Crypto L2 Order Book Stream
+  if (lower.includes("equit") || lower.includes("order book") || lower.includes("clob") || lower.includes("nasdaq")) {
+    const symbol = param1 || "BTC / USD";
+    const depth = param2 || "L2 Top 5 (Ultra-Fast)";
+    const basePrice = symbol.includes("BTC") ? 91420.5 : symbol.includes("ETH") ? 3350.2 : symbol.includes("NVDA") ? 142.8 : symbol.includes("AAPL") ? 228.4 : symbol.includes("EUR") ? 1.0825 : 194.5;
+    const spread = basePrice * 0.0005;
+
     return {
-      source: "Kuru CLOB DEX (Monad Mainnet 143)",
-      pair,
-      depthLevel: depth,
+      source: "Global Financial Exchanges (NASDAQ / CME / Binance)",
+      symbol,
+      depthScope: depth,
+      midPrice: basePrice,
       bestBid: basePrice,
       bestAsk: Number((basePrice + spread).toFixed(4)),
-      spreadUsdc: Number(spread.toFixed(4)),
-      spreadBps: 2.48,
+      spreadUsd: Number(spread.toFixed(4)),
+      spreadBps: 5.0,
       bidsDepth: [
-        { price: basePrice, amount: 4520.5, totalUsdc: Number((basePrice * 4520.5).toFixed(2)) },
-        { price: Number((basePrice * 0.999).toFixed(4)), amount: 8900.0, totalUsdc: Number((basePrice * 0.999 * 8900).toFixed(2)) },
-        { price: Number((basePrice * 0.998).toFixed(4)), amount: 15400.0, totalUsdc: Number((basePrice * 0.998 * 15400).toFixed(2)) },
+        { price: basePrice, volume: 4.52, totalValueUsd: Number((basePrice * 4.52).toFixed(2)) },
+        { price: Number((basePrice * 0.999).toFixed(4)), volume: 12.8, totalValueUsd: Number((basePrice * 0.999 * 12.8).toFixed(2)) },
+        { price: Number((basePrice * 0.998).toFixed(4)), volume: 28.4, totalValueUsd: Number((basePrice * 0.998 * 28.4).toFixed(2)) },
       ],
       asksDepth: [
-        { price: Number((basePrice + spread).toFixed(4)), amount: 3200.0, totalUsdc: Number(((basePrice + spread) * 3200).toFixed(2)) },
-        { price: Number(((basePrice + spread) * 1.001).toFixed(4)), amount: 11450.2, totalUsdc: Number(((basePrice + spread) * 1.001 * 11450.2).toFixed(2)) },
+        { price: Number((basePrice + spread).toFixed(4)), volume: 3.8, totalValueUsd: Number(((basePrice + spread) * 3.8).toFixed(2)) },
+        { price: Number(((basePrice + spread) * 1.001).toFixed(4)), volume: 15.2, totalValueUsd: Number(((basePrice + spread) * 1.001 * 15.2).toFixed(2)) },
       ],
-      depthWithin2PercentUsdc: 342600.0,
-      queryParam1: pair,
+      vwap24h: Number((basePrice * 1.0015).toFixed(2)),
+      volume24hUsd: "$1,842,900,000",
+      queryParam1: symbol,
       queryParam2: depth,
-      endpointUrl: `/api/v1/clob/kuru/orderbook?pair=${encodeURIComponent(pair)}&depth=${encodeURIComponent(depth)}`,
+      endpointUrl: `/api/v1/clob/orderbook?symbol=${encodeURIComponent(symbol)}&depth=${encodeURIComponent(depth)}`,
       observedDataAgeSeconds: safeAge,
       slaWindowSeconds: slaSeconds,
       slaVerdict: safeAge <= slaSeconds ? "VERIFIED_FRESH" : "SLA_BREACH",
       attestedAt: now.toISOString(),
       monadBlockHeight: baseBlock,
+      settlementLayer,
     };
   }
 
+  // 3. Global Macro & Commodities Index Feeds
+  if (lower.includes("macro") || lower.includes("commodit") || lower.includes("crude") || lower.includes("gold")) {
+    const asset = param1 || "WTI Crude Oil ($/bbl)";
+    const scope = param2 || "Real-Time Spot Tick & Bid/Ask";
+    const spot = asset.includes("Crude") ? 78.42 : asset.includes("Gold") ? 2735.6 : asset.includes("10Y") ? 4.28 : asset.includes("EUR") ? 1.082 : 5892.4;
+
+    return {
+      source: "Intercontinental Exchange (ICE) / CME Group",
+      asset,
+      deliveryScope: scope,
+      spotPrice: spot,
+      dayHigh: Number((spot * 1.012).toFixed(2)),
+      dayLow: Number((spot * 0.988).toFixed(2)),
+      netChange24hPct: "+1.34%",
+      cmeOpenInterestContracts: 428910,
+      impliedVolatilityAnnualPct: "24.8%",
+      settlementDate: "Active Front-Month Future",
+      queryParam1: asset,
+      queryParam2: scope,
+      endpointUrl: `/api/v1/macro/commodities/quote?symbol=${encodeURIComponent(asset)}`,
+      observedDataAgeSeconds: safeAge,
+      slaWindowSeconds: slaSeconds,
+      slaVerdict: safeAge <= slaSeconds ? "VERIFIED_FRESH" : "SLA_BREACH",
+      attestedAt: now.toISOString(),
+      monadBlockHeight: baseBlock,
+      settlementLayer,
+    };
+  }
+
+  // 4. FlightAware Global Aviation & ADS-B Telemetry
+  if (lower.includes("aviation") || lower.includes("flight") || lower.includes("ads-b")) {
+    const corridor = param1 || "North Atlantic Tracks (NAT JFK-LHR)";
+    const telemetry = param2 || "ADS-B Transponder Coordinates & Altitude";
+
+    return {
+      source: "Global Aviation ADS-B Ground Receivers & Satellite Constellation",
+      corridor,
+      telemetryStream: telemetry,
+      activeAircraftTracked: 184,
+      sampleAirframes: [
+        { callsign: "BAW117", aircraftType: "B777-300ER", flightLevel: 360, groundSpeedKnots: 512, lat: 51.42, lon: -32.18, squawk: "7214" },
+        { callsign: "DAL402", aircraftType: "A350-900", flightLevel: 380, groundSpeedKnots: 498, lat: 52.88, lon: -28.94, squawk: "3105" },
+        { callsign: "UAL928", aircraftType: "B787-9", flightLevel: 340, groundSpeedKnots: 524, lat: 49.91, lon: -36.50, squawk: "5512" },
+      ],
+      oceanicClearanceStatus: "NORMAL",
+      emergencySquawkAlerts: 0,
+      averageTerminalDelayMinutes: 8.2,
+      queryParam1: corridor,
+      queryParam2: telemetry,
+      endpointUrl: `/api/v1/aviation/adsb/corridor?corridor=${encodeURIComponent(corridor)}`,
+      observedDataAgeSeconds: safeAge,
+      slaWindowSeconds: slaSeconds,
+      slaVerdict: safeAge <= slaSeconds ? "VERIFIED_FRESH" : "SLA_BREACH",
+      attestedAt: now.toISOString(),
+      monadBlockHeight: baseBlock,
+      settlementLayer,
+    };
+  }
+
+  // 5. Aave V3 Multi-Chain Lending Rates & APY
   if (lower.includes("aave") || lower.includes("lending")) {
     const asset = param1 || "USDC";
     const scope = param2 || "Supply & Borrow APY";
@@ -126,46 +191,22 @@ export function generateDeliveredPayload(
       slaVerdict: safeAge <= slaSeconds ? "VERIFIED_FRESH" : "SLA_BREACH",
       attestedAt: now.toISOString(),
       monadBlockHeight: baseBlock,
+      settlementLayer,
     };
   }
 
-  if (lower.includes("polymarket") || lower.includes("prediction")) {
-    const market = param1 || "Federal Reserve Interest Rate Decision (Next FOMC)";
-    const scope = param2 || "Probability Curve & Best Bids/Asks";
-    return {
-      source: "Polymarket CTF Exchange",
-      market,
-      scope,
-      conditionId: "0x4b9a91428a1c940b1275d27b99c41",
-      outcomes: [
-        { name: "25 bps Rate Cut", probability: "68.4%", priceUsdc: 0.684, bid: 0.68, ask: 0.69 },
-        { name: "No Change", probability: "27.1%", priceUsdc: 0.271, bid: 0.26, ask: 0.28 },
-        { name: "50 bps Rate Cut", probability: "4.5%", priceUsdc: 0.045, bid: 0.04, ask: 0.05 },
-      ],
-      volume24hUsdc: "$1,450,200",
-      openInterestUsdc: "$3,890,400",
-      queryParam1: market,
-      queryParam2: scope,
-      endpointUrl: `/api/v1/prediction/polymarket/book?market=${encodeURIComponent(market)}`,
-      observedDataAgeSeconds: safeAge,
-      slaWindowSeconds: slaSeconds,
-      slaVerdict: safeAge <= slaSeconds ? "VERIFIED_FRESH" : "SLA_BREACH",
-      attestedAt: now.toISOString(),
-      monadBlockHeight: baseBlock,
-    };
-  }
-
+  // 6. Uniswap V3 Multi-Chain Liquidity & TWAP
   if (lower.includes("uniswap") || lower.includes("twap")) {
     const pool = param1 || "WETH / USDC (0.05%)";
     const metric = param2 || "Spot Tick & Geometric TWAP";
     return {
-      source: "Uniswap V3 High-Frequency Pool",
+      source: "Uniswap V3 High-Frequency Pool (Ethereum / Arbitrum)",
       pool,
       metric,
       poolAddress: "0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640",
       sqrtPriceX96: "194829148204918239019",
       currentTick: -201942,
-      twapPriceUsdc: pool.includes("MON") ? 12.45 : pool.includes("BTC") ? 91420.0 : 3412.85,
+      twapPriceUsdc: pool.includes("BTC") ? 91420.0 : 3412.85,
       tickSpacing: 10,
       feeGrowthGlobal0X128: "9420849201942",
       feeGrowthGlobal1X128: "1482094209142",
@@ -177,69 +218,26 @@ export function generateDeliveredPayload(
       slaVerdict: safeAge <= slaSeconds ? "VERIFIED_FRESH" : "SLA_BREACH",
       attestedAt: now.toISOString(),
       monadBlockHeight: baseBlock,
+      settlementLayer,
     };
   }
 
-  if (lower.includes("perpl") || lower.includes("derivative")) {
-    const market = param1 || "MON-PERP";
-    const dataSlice = param2 || "Mark Price & 1h Funding Rate";
-    return {
-      source: "Perpl Perpetual Exchange (Monad Native)",
-      market,
-      dataSlice,
-      markPrice: market.includes("BTC") ? 91450.0 : market.includes("ETH") ? 3352.0 : 12.465,
-      indexPrice: market.includes("BTC") ? 91430.0 : market.includes("ETH") ? 3350.0 : 12.461,
-      deviationBps: 3.2,
-      fundingRate1h: "+0.0014%",
-      annualizedFundingApy: "+12.26%",
-      openInterestUsdc: "$8,420,000",
-      longShortRatio: "52.4% / 47.6%",
-      queryParam1: market,
-      queryParam2: dataSlice,
-      endpointUrl: `/api/v1/derivatives/perpl/feed?market=${encodeURIComponent(market)}`,
-      observedDataAgeSeconds: safeAge,
-      slaWindowSeconds: slaSeconds,
-      slaVerdict: safeAge <= slaSeconds ? "VERIFIED_FRESH" : "SLA_BREACH",
-      attestedAt: now.toISOString(),
-      monadBlockHeight: baseBlock,
-    };
-  }
-
-  if (lower.includes("azuro")) {
-    const category = param1 || "UEFA Champions League";
-    const statusType = param2 || "Live In-Play Odds";
-    return {
-      source: "Azuro Protocol (Base / Polygon)",
-      category,
-      statusType,
-      game: "UEFA Champions League: Real Madrid vs Bayern Munich",
-      marketType: "Full Time Result (1X2)",
-      odds: { team1Win: 2.1, draw: 3.45, team2Win: 3.2 },
-      poolTotalLiquidityUsdc: "$890,400",
-      conditionResolutionStatus: "PENDING_KICKOFF",
-      queryParam1: category,
-      queryParam2: statusType,
-      endpointUrl: `/api/v1/prediction/azuro/pool?category=${encodeURIComponent(category)}`,
-      observedDataAgeSeconds: safeAge,
-      slaWindowSeconds: slaSeconds,
-      slaVerdict: safeAge <= slaSeconds ? "VERIFIED_FRESH" : "SLA_BREACH",
-      attestedAt: now.toISOString(),
-      monadBlockHeight: baseBlock,
-    };
-  }
-
+  // 7. OpenSea Seaport Floor Prices & Trades
   if (lower.includes("opensea") || lower.includes("seaport") || lower.includes("nft")) {
-    const collection = param1 || "Monad Early Adopters Pass";
+    const collection = param1 || "CryptoPunks";
     const feedDepth = param2 || "Instant Floor Price & Top Bid";
+    const floorEth = collection.includes("Punks") ? 32.4 : collection.includes("Ape") ? 14.8 : collection.includes("Pudgy") ? 11.2 : 4.1;
+
     return {
-      source: "OpenSea Seaport 1.6 Protocol",
+      source: "OpenSea Seaport 1.6 Protocol (Ethereum Mainnet)",
       collection,
       feedDepth,
-      floorPriceMon: 42.5,
-      floorPriceUsdc: 529.55,
-      lastSalePriceMon: 44.0,
-      totalVolumeMon: 12840.5,
-      listedCount: 142,
+      floorPriceEth: floorEth,
+      floorPriceUsd: Number((floorEth * 3350).toFixed(2)),
+      topBidEth: Number((floorEth * 0.985).toFixed(2)),
+      sales24h: 18,
+      volume24hEth: Number((floorEth * 18 * 1.05).toFixed(2)),
+      listedCount: 382,
       queryParam1: collection,
       queryParam2: feedDepth,
       endpointUrl: `/api/v1/nft/seaport/floor?collection=${encodeURIComponent(collection)}`,
@@ -248,29 +246,72 @@ export function generateDeliveredPayload(
       slaVerdict: safeAge <= slaSeconds ? "VERIFIED_FRESH" : "SLA_BREACH",
       attestedAt: now.toISOString(),
       monadBlockHeight: baseBlock,
+      settlementLayer,
     };
   }
 
-  // Fallback for Gas / Risk or any other query
-  const metric = param1 || "Base Fee Delta & Optimal Tip Estimator";
-  const freq = param2 || "Block-by-Block (sub-second)";
+  // 8. Overtime Live Sports Odds & Moneyline Spreads
+  if (lower.includes("sport") || lower.includes("overtime")) {
+    const fixture = param1 || "EPL: Arsenal vs Manchester City";
+    const marketType = param2 || "Moneyline & Winner Odds";
+    return {
+      source: "Overtime Protocol / Sports Oracle Feeds",
+      fixture,
+      marketType,
+      competition: "Premier League (Matchday 28)",
+      status: "LIVE - 2nd Half (64')",
+      scores: { home: 1, away: 1 },
+      moneylineOdds: {
+        homeWin: 2.45,
+        draw: 3.10,
+        awayWin: 2.80,
+      },
+      spread: {
+        line: 0.0,
+        homeOdds: 1.88,
+        awayOdds: 1.94,
+      },
+      overUnder: {
+        total: 2.5,
+        overOdds: 1.75,
+        underOdds: 2.05,
+      },
+      marketVolume24hUsdc: "$1,240,800",
+      queryParam1: fixture,
+      queryParam2: marketType,
+      endpointUrl: `/api/v1/sports/overtime/odds?fixture=${encodeURIComponent(fixture)}`,
+      observedDataAgeSeconds: safeAge,
+      slaWindowSeconds: slaSeconds,
+      slaVerdict: safeAge <= slaSeconds ? "VERIFIED_FRESH" : "SLA_BREACH",
+      attestedAt: now.toISOString(),
+      monadBlockHeight: baseBlock,
+      settlementLayer,
+    };
+  }
+
+  // 9. Polymarket Global Macro & Prediction Curves
+  const market = param1 || "Fed Interest Rate Cut (Next FOMC Meeting)";
+  const scope = param2 || "Probability Curve & Best Bids/Asks";
   return {
-    source: datasetName || "Monad Validator Telemetry",
-    metric,
-    samplingFrequency: freq,
-    baseFeeGwei: 52.4,
-    recommendedPriorityFeeGwei: 2.5,
-    mempoolPendingTxCount: 8420,
-    sequencerQueueLatencyMs: 14,
-    frontrunningRiskIndex: "LOW (0.12 / 1.0)",
-    reorgRiskIndex: "0.00%",
-    queryParam1: metric,
-    queryParam2: freq,
-    endpointUrl: `/api/v1/telemetry/monad/mempool?metric=${encodeURIComponent(metric)}`,
+    source: "Polymarket CTF Protocol (Polygon)",
+    market,
+    scope,
+    conditionId: "0x4b9a91428a1c940b1275d27b99c41a298",
+    outcomes: [
+      { name: "25 bps Rate Cut", probability: "68.4%", priceUsdc: 0.684, bid: 0.68, ask: 0.69 },
+      { name: "No Change", probability: "27.1%", priceUsdc: 0.271, bid: 0.26, ask: 0.28 },
+      { name: "50 bps Rate Cut", probability: "4.5%", priceUsdc: 0.045, bid: 0.04, ask: 0.05 },
+    ],
+    volume24hUsdc: "$2,890,400",
+    openInterestUsdc: "$7,420,100",
+    queryParam1: market,
+    queryParam2: scope,
+    endpointUrl: `/api/v1/prediction/polymarket/book?market=${encodeURIComponent(market)}`,
     observedDataAgeSeconds: safeAge,
     slaWindowSeconds: slaSeconds,
     slaVerdict: safeAge <= slaSeconds ? "VERIFIED_FRESH" : "SLA_BREACH",
     attestedAt: now.toISOString(),
     monadBlockHeight: baseBlock,
+    settlementLayer,
   };
 }

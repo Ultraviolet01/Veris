@@ -36,7 +36,7 @@ export const BuyerModal: React.FC<BuyerModalProps> = ({ dataset, onClose }) => {
 
   const queryConfig = dataset ? getQueryConfigForDataset(dataset.name) : null;
   const [param1, setParam1] = useState<string>(
-    queryConfig?.param1Options[0] || "MON / USDC"
+    queryConfig?.param1Options[0] || ""
   );
   const [param2, setParam2] = useState<string>(
     queryConfig?.param2Options?.[0] || ""

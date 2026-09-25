@@ -23,13 +23,15 @@ export const MarketplaceExplorer: React.FC<MarketplaceExplorerProps> = ({ onSele
 
   const categories = [
     "All",
+    "Weather & Climate",
+    "Order Books & Equities",
+    "Macro & Commodities",
+    "Aviation & Logistics",
     "DeFi Rates",
     "DEX Liquidity",
-    "Perps & Derivatives",
-    "Prediction Markets",
+    "NFT & Digital Assets",
     "Sports & Events",
-    "NFT & RWA",
-    "Risk Signals",
+    "Prediction Markets",
   ];
 
   const filteredDatasets = FEATURED_DATASETS.filter((item) => {
@@ -46,15 +48,15 @@ export const MarketplaceExplorer: React.FC<MarketplaceExplorerProps> = ({ onSele
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="badge badge-monad">Live Data Feeds</span>
-            <span className="text-xs text-zinc-400">Guaranteed Freshness SLA</span>
+            <span className="badge badge-monad">Universal Data Feeds</span>
+            <span className="text-xs text-zinc-400">Settled via Monad Escrow</span>
           </div>
           <h2 className="text-2xl sm:text-3xl font-bold text-white font-['Outfit']">
-            Monad On-Chain Data Marketplace
+            Universal Verified Data Marketplace
           </h2>
           <p className="text-sm text-zinc-400 max-w-2xl mt-1">
-            Browse verified data feeds published by registered sellers. Every query is backed by an
-            ERC-8183 escrow contract with automatic cryptographic SLA verification.
+            Browse real-world, financial, and digital data feeds published by registered sellers.
+            Every query is settled via Monad ERC-8183 escrow with cryptographic SLA verification.
           </p>
         </div>
 

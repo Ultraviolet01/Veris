@@ -21,10 +21,10 @@ export const SellerStudio: React.FC = () => {
   const { step, error, receipt, registerSeller, reset } = useSellerFlow();
 
   const [formData, setFormData] = useState<RegisterSellerParams>({
-    datasetName: "Uniswap V3 MON/USDC Sub-Second TWAP",
-    category: "DEX Liquidity",
-    priceUsdc: 0.35,
-    freshnessWindowSeconds: 8,
+    datasetName: "NOAA Doppler Radar & Severe Storm Telemetry",
+    category: "Weather & Climate",
+    priceUsdc: 0.25,
+    freshnessWindowSeconds: 15,
     operatorKey: ADDRESSES.defaultOperatorKey,
     sourceChainId: MONAD_TESTNET_CHAIN_ID,
   });
@@ -114,10 +114,15 @@ export const SellerStudio: React.FC = () => {
                 onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                 className="w-full bg-zinc-900 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-[#836ef9]"
               >
+                <option value="Weather & Climate">Weather & Climate</option>
+                <option value="Order Books & Equities">Order Books & Equities</option>
+                <option value="Macro & Commodities">Macro & Commodities</option>
+                <option value="Aviation & Logistics">Aviation & Logistics</option>
                 <option value="DeFi Rates">DeFi Rates</option>
                 <option value="DEX Liquidity">DEX Liquidity</option>
-                <option value="Oracle Prices">Oracle Prices</option>
-                <option value="Risk Signals">Risk Signals</option>
+                <option value="NFT & Digital Assets">NFT & Digital Assets</option>
+                <option value="Sports & Events">Sports & Events</option>
+                <option value="Prediction Markets">Prediction Markets</option>
               </select>
             </div>
           </div>

@@ -26,7 +26,7 @@ import type { JobExecutionReceipt } from "../hooks/useBuyerFlow";
 
 export function AgentPlayground() {
   const [selectedScenario, setSelectedScenario] = useState<"fresh" | "stale" | "invalid">("fresh");
-  const [selectedDataset, setSelectedDataset] = useState<string>("monad-dex-prices");
+  const [selectedDataset, setSelectedDataset] = useState<string>("noaa-weather");
   const [executionMode, setExecutionMode] = useState<"live" | "simulated">("simulated");
   const [isRunning, setIsRunning] = useState<boolean>(false);
   const [currentStep, setCurrentStep] = useState<number>(0);
@@ -60,7 +60,7 @@ export function AgentPlayground() {
       try {
         const targetDataset =
           FEATURED_DATASETS.find((d) => d.name.toLowerCase().includes(selectedDataset.split("-")[0])) ||
-          FEATURED_DATASETS[1]; // Kuru default
+          FEATURED_DATASETS[0]; // NOAA Weather default
 
         const forceStale = selectedScenario === "stale";
         const result = await executeJobPurchase(targetDataset, 0.25, forceStale);
@@ -446,9 +446,11 @@ export function AgentPlayground() {
                   onChange={(e) => setSelectedDataset(e.target.value)}
                   className="w-full bg-[#050609] border border-white/10 rounded-xl px-3.5 py-2.5 text-white font-mono text-xs focus:outline-none focus:border-purple-500"
                 >
-                  <option value="monad-dex-prices">Kuru CLOB DEX Best Bid/Ask (Monad)</option>
-                  <option value="aave-v3-rates">Aave V3 Lending APY & Reserve Factors</option>
-                  <option value="gas-priority-risk">Monad Sequencer Queue & MEV Risk</option>
+                  <option value="noaa-weather">NOAA Doppler Radar & Global Weather Telemetry</option>
+                  <option value="global-clob-equities">Global Equities & Crypto L2 Order Book Stream</option>
+                  <option value="macro-commodities">Global Macro & Commodities Index Feeds (Crude / Gold)</option>
+                  <option value="aviation-telemetry">FlightAware Global Aviation & ADS-B Telemetry</option>
+                  <option value="aave-v3-rates">Aave V3 Multi-Chain Lending Rates & APY</option>
                 </select>
               </div>
 

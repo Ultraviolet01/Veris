@@ -352,12 +352,13 @@ export interface MarketplaceDataset {
   sellerIdBytes32?: `0x${string}`;
   name: string;
   category:
+    | "Weather & Climate"
+    | "Order Books & Equities"
+    | "Macro & Commodities"
+    | "Aviation & Logistics"
     | "DeFi Rates"
     | "DEX Liquidity"
-    | "Oracle Prices"
-    | "Risk Signals"
-    | "Perps & Derivatives"
-    | "NFT & RWA"
+    | "NFT & Digital Assets"
     | "Sports & Events"
     | "Prediction Markets";
   description: string;
@@ -373,118 +374,118 @@ export const FEATURED_DATASETS: MarketplaceDataset[] = [
   {
     sellerId: VERIS_SELLER_ID,
     sellerIdBytes32: VERIS_SELLER_ID_BYTES32,
-    name: "Aave V3 Lending Rates & Liquidity APY",
-    category: "DeFi Rates",
-    description: "Real-time liquidity rate, variable borrow rate, and reserve factor attested from on-chain Aave V3 lending pools.",
-    freshnessSlaSeconds: 10,
+    name: "NOAA Doppler Radar & Global Weather Telemetry",
+    category: "Weather & Climate",
+    description: "High-resolution Doppler radar precipitation, barometric pressure, wind vector telemetry, and severe storm warnings from NOAA satellites and international airports.",
+    freshnessSlaSeconds: 15,
     priceUsdc: 0.25,
     reliabilityBps: 9980, // 99.8%
-    totalJobs: 1420,
-    sourceChain: "Ethereum / Arbitrum (Aave V3)",
+    totalJobs: 3210,
+    sourceChain: "NOAA GOES-16 Satellites / Airport Weather Stations",
     payoutAddress: "0x71C839e93ab233B27cb92a7e7Ac33f7bDa6b1e60",
   },
   {
     sellerId: VERIS_SELLER_ID,
     sellerIdBytes32: VERIS_SELLER_ID_BYTES32,
-    name: "Kuru CLOB DEX Best Bid/Ask & Depth",
-    category: "DEX Liquidity",
-    description: "Sub-second order book snapshot (getBestBid/getBestAsk, pricePrecision, spread) from Kuru CLOB on Monad.",
+    name: "Global Equities & Crypto L2 Order Book Stream",
+    category: "Order Books & Equities",
+    description: "Ultra-low-latency L2 order book depth (bids, asks, spreads, VWAP) aggregated across NASDAQ, CME, Binance, and Coinbase.",
     freshnessSlaSeconds: 3,
     priceUsdc: 0.35,
     reliabilityBps: 9990, // 99.9%
-    totalJobs: 4210,
-    sourceChain: "Monad Mainnet (Native)",
+    totalJobs: 8420,
+    sourceChain: "Global Financial Exchanges (NASDAQ / CME / Binance)",
     payoutAddress: "0x82A123e4210ab233B27cb92a7e7Ac33f7bDa6b1e61",
   },
   {
     sellerId: VERIS_SELLER_ID,
     sellerIdBytes32: VERIS_SELLER_ID_BYTES32,
-    name: "Perpl Derivatives Mark Price & Funding Rates",
-    category: "Perps & Derivatives",
-    description: "Real-time perpetual mark price, index deviation, 1h funding velocity, and open interest from Perpl on Monad.",
+    name: "Global Macro & Commodities Index Feeds",
+    category: "Macro & Commodities",
+    description: "Real-time spot and futures price feeds for WTI Crude Oil, Gold (XAU), US 10Y Treasury Yields, and EUR/USD FX rates.",
     freshnessSlaSeconds: 5,
     priceUsdc: 0.45,
     reliabilityBps: 9970, // 99.7%
-    totalJobs: 2780,
-    sourceChain: "Monad Mainnet (Native)",
+    totalJobs: 5120,
+    sourceChain: "Intercontinental Exchange (ICE) / CME Group",
     payoutAddress: "0x93F423e4210ab233B27cb92a7e7Ac33f7bDa6b1e62",
   },
   {
     sellerId: VERIS_SELLER_ID,
     sellerIdBytes32: VERIS_SELLER_ID_BYTES32,
-    name: "Uniswap V3 High-Frequency Pool TWAP",
-    category: "DEX Liquidity",
-    description: "High-frequency spot tick, fee growth globals, and tick cumulative depth snapshots with block proof guarantees.",
-    freshnessSlaSeconds: 5,
+    name: "FlightAware Global Aviation & ADS-B Telemetry",
+    category: "Aviation & Logistics",
+    description: "Sub-second ADS-B transponder telemetry, oceanic flight tracking, live runway dwell times, and international air traffic congestion.",
+    freshnessSlaSeconds: 6,
     priceUsdc: 0.30,
     reliabilityBps: 9950, // 99.5%
-    totalJobs: 3890,
-    sourceChain: "Ethereum / Arbitrum / Monad",
+    totalJobs: 2940,
+    sourceChain: "Global Aviation ADS-B Network & Satellite Transponders",
     payoutAddress: "0x45E923e4210ab233B27cb92a7e7Ac33f7bDa6b1e63",
   },
   {
     sellerId: VERIS_SELLER_ID,
     sellerIdBytes32: VERIS_SELLER_ID_BYTES32,
+    name: "Aave V3 Multi-Chain Lending Rates & APY",
+    category: "DeFi Rates",
+    description: "Real-time liquidity rate, variable borrow rate, and reserve factor attested from on-chain Aave V3 lending pools across Ethereum and Arbitrum.",
+    freshnessSlaSeconds: 10,
+    priceUsdc: 0.25,
+    reliabilityBps: 9980, // 99.8%
+    totalJobs: 1420,
+    sourceChain: "Ethereum / Arbitrum (Aave V3)",
+    payoutAddress: "0x56F023e4210ab233B27cb92a7e7Ac33f7bDa6b1e64",
+  },
+  {
+    sellerId: VERIS_SELLER_ID,
+    sellerIdBytes32: VERIS_SELLER_ID_BYTES32,
+    name: "Uniswap V3 Multi-Chain Liquidity & TWAP",
+    category: "DEX Liquidity",
+    description: "High-frequency spot tick, fee growth globals, and tick cumulative depth snapshots across Ethereum, Arbitrum, and Base.",
+    freshnessSlaSeconds: 5,
+    priceUsdc: 0.30,
+    reliabilityBps: 9950, // 99.5%
+    totalJobs: 3890,
+    sourceChain: "Ethereum / Arbitrum / Base DEX Pools",
+    payoutAddress: "0x67A123e4210ab233B27cb92a7e7Ac33f7bDa6b1e65",
+  },
+  {
+    sellerId: VERIS_SELLER_ID,
+    sellerIdBytes32: VERIS_SELLER_ID_BYTES32,
     name: "OpenSea Seaport Floor Prices & Trades",
-    category: "NFT & RWA",
+    category: "NFT & Digital Assets",
     description: "Verified OrderFulfilled event streams, instant settlement volume, and collection floor prices across Seaport 1.6.",
     freshnessSlaSeconds: 15,
     priceUsdc: 0.40,
     reliabilityBps: 9920, // 99.2%
     totalJobs: 1190,
     sourceChain: "Ethereum Mainnet (Seaport)",
-    payoutAddress: "0x56F023e4210ab233B27cb92a7e7Ac33f7bDa6b1e64",
-  },
-  {
-    sellerId: VERIS_SELLER_ID,
-    sellerIdBytes32: VERIS_SELLER_ID_BYTES32,
-    name: "Overtime Markets Live Sports Odds & Spreads",
-    category: "Sports & Events",
-    description: "Decentralized sports betting odds, moneyline spreads, and live fixture status feeds attested on-chain.",
-    freshnessSlaSeconds: 12,
-    priceUsdc: 0.50,
-    reliabilityBps: 9940, // 99.4%
-    totalJobs: 1640,
-    sourceChain: "Optimism / Arbitrum (Overtime)",
-    payoutAddress: "0x67A123e4210ab233B27cb92a7e7Ac33f7bDa6b1e65",
-  },
-  {
-    sellerId: VERIS_SELLER_ID,
-    sellerIdBytes32: VERIS_SELLER_ID_BYTES32,
-    name: "Azuro Event Prediction & Betting Liquidity",
-    category: "Prediction Markets",
-    description: "Multi-app pooled liquidity odds, condition resolution states, and betting volume aggregated across 30+ dApps.",
-    freshnessSlaSeconds: 10,
-    priceUsdc: 0.45,
-    reliabilityBps: 9930, // 99.3%
-    totalJobs: 2150,
-    sourceChain: "Polygon / Base (Azuro)",
     payoutAddress: "0x78B223e4210ab233B27cb92a7e7Ac33f7bDa6b1e66",
   },
   {
     sellerId: VERIS_SELLER_ID,
     sellerIdBytes32: VERIS_SELLER_ID_BYTES32,
-    name: "Polymarket Outcome Probabilities & Depth",
-    category: "Prediction Markets",
-    description: "Live macro, political, and crypto prediction market probability curves, order books, and open settlement shares.",
-    freshnessSlaSeconds: 8,
-    priceUsdc: 0.60,
-    reliabilityBps: 9960, // 99.6%
-    totalJobs: 5320,
-    sourceChain: "Polygon (CTF Exchange)",
+    name: "Overtime Live Sports Odds & Moneyline Spreads",
+    category: "Sports & Events",
+    description: "Decentralized sports betting odds, moneyline spreads, and live fixture status feeds for EPL, NFL, NBA, and UEFA Champions League.",
+    freshnessSlaSeconds: 12,
+    priceUsdc: 0.50,
+    reliabilityBps: 9940, // 99.4%
+    totalJobs: 1640,
+    sourceChain: "Overtime Protocol / Sports Oracle Feeds",
     payoutAddress: "0x89C323e4210ab233B27cb92a7e7Ac33f7bDa6b1e67",
   },
   {
     sellerId: VERIS_SELLER_ID,
     sellerIdBytes32: VERIS_SELLER_ID_BYTES32,
-    name: "Monad Gas Priority & Sequencer Queue Risk",
-    category: "Risk Signals",
-    description: "Mempool congestion signals, base fee delta, and MEV frontrunning probability metrics on Monad.",
+    name: "Polymarket Global Macro & Prediction Curves",
+    category: "Prediction Markets",
+    description: "Live macro, central bank rate cut probabilities, elections, and commodity prediction curves with order books and outcome shares.",
     freshnessSlaSeconds: 8,
-    priceUsdc: 0.75,
-    reliabilityBps: 9890, // 98.9%
-    totalJobs: 982,
-    sourceChain: "Monad Testnet (10143)",
+    priceUsdc: 0.60,
+    reliabilityBps: 9960, // 99.6%
+    totalJobs: 5320,
+    sourceChain: "Polymarket CTF Protocol (Polygon)",
     payoutAddress: "0x90D423e4210ab233B27cb92a7e7Ac33f7bDa6b1e68",
   },
 ];
