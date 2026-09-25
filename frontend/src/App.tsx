@@ -37,22 +37,9 @@ export function VerisApp() {
   useWalletCreation();
 
   const handleOpenMarketplace = () => {
-    if (!isLoggedIn) {
-      setPendingMarketplaceNav(true);
-      setShowAuthFlow(true);
-    } else {
-      setActiveView("marketplace");
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    }
+    setActiveView("marketplace");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
-
-  useEffect(() => {
-    if (isLoggedIn && pendingMarketplaceNav) {
-      setPendingMarketplaceNav(false);
-      setActiveView("marketplace");
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    }
-  }, [isLoggedIn, pendingMarketplaceNav]);
 
   const handleOpenPlayground = () => {
     setActiveView("playground");

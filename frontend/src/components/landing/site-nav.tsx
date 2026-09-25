@@ -12,7 +12,7 @@ interface SiteNavProps {
   onOpenSellerStudio?: () => void;
 }
 
-type CentreTabId = "home" | "how-it-works" | "docs";
+type CentreTabId = "home" | "data-feeds" | "how-it-works" | "docs";
 
 export function SiteNav({ activeView, setActiveView, onOpenSellerStudio }: SiteNavProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -21,12 +21,18 @@ export function SiteNav({ activeView, setActiveView, onOpenSellerStudio }: SiteN
 
   const centreTabs: { id: CentreTabId; label: string }[] = [
     { id: "home", label: "Home" },
+    { id: "data-feeds", label: "Data Feeds" },
     { id: "how-it-works", label: "How it works" },
     { id: "docs", label: "Docs" },
   ];
 
   // Sync active tab with activeView and scroll position
   useEffect(() => {
+    if (activeView === "marketplace") {
+      setActiveTab("data-feeds");
+      return;
+    }
+
     if (activeView === "docs") {
       setActiveTab("docs");
       return;
@@ -62,6 +68,9 @@ export function SiteNav({ activeView, setActiveView, onOpenSellerStudio }: SiteN
         setActiveView("overview");
       }
       window.scrollTo({ top: 0, behavior: "smooth" });
+    } else if (tabId === "data-feeds") {
+      setActiveView("marketplace");
+      window.scrollTo({ top: 0, behavior: "smooth" });
     } else if (tabId === "how-it-works") {
       if (activeView !== "overview") {
         setActiveView("overview");
@@ -78,6 +87,7 @@ export function SiteNav({ activeView, setActiveView, onOpenSellerStudio }: SiteN
   };
 
   const isTabActive = (tabId: CentreTabId) => {
+    if (tabId === "data-feeds") return activeView === "marketplace";
     if (tabId === "docs") return activeView === "docs";
     if (activeView !== "overview") return false;
     return activeTab === tabId;
