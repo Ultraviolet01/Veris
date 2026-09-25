@@ -180,6 +180,9 @@ export function generateDeliveredPayload(
     const collection = param1 || "CryptoPunks";
     const feedDepth = param2 || "Instant Floor Price & Top Bid";
     const floorEth = collection.includes("Punks") ? 32.4 : collection.includes("Ape") ? 14.8 : collection.includes("Pudgy") ? 11.2 : 4.1;
+    const topBid = Number((floorEth * 0.985).toFixed(2));
+    const floorUsd = Math.round(floorEth * 3350);
+    const topBidUsd = Math.round(topBid * 3350);
 
     return {
       source: "OpenSea Seaport 1.6 Contract (Seaport.sol)",
@@ -190,9 +193,16 @@ export function generateDeliveredPayload(
       collection,
       feedDepth,
       floorPriceEth: floorEth,
-      topBidEth: Number((floorEth * 0.985).toFixed(2)),
-      lastOrderFulfilledHash: "0x4b9a91428a1c940b1275d27b99c41a2984920194820194820194820194820194",
+      floorPriceUsd: `$${floorUsd.toLocaleString()}`,
+      topBidEth: topBid,
+      topBidUsd: `$${topBidUsd.toLocaleString()}`,
+      bidFloorSpreadPct: "1.50%",
+      spreadEth: Number((floorEth - topBid).toFixed(2)),
+      volume24hEth: "142.8 ETH",
+      volume24hUsd: "$478,380",
       activeListingsCount: 382,
+      lastOrderFulfilledHash: "0x4b9a91428a1c940b1275d27b99c41a2984920194820194820194820194820194",
+      lastOrderPriceEth: floorEth,
       queryParam1: collection,
       queryParam2: feedDepth,
       endpointUrl: `/api/v1/nft/seaport/floor?collection=${encodeURIComponent(collection)}`,

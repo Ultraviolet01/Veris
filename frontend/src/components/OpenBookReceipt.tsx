@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { MONAD_TESTNET_EXPLORER } from "../lib/contracts";
 import type { JobExecutionReceipt, BuyerStep } from "../hooks/useBuyerFlow";
+import { DeliveredDataView } from "./DeliveredDataView";
 
 export type PurchaseStepKey = "quote" | "pay" | "deliver" | "verdict" | "settle" | "split";
 
@@ -434,35 +435,17 @@ export function OpenBookTxCard({
           : " The SLA was breached, so 100% was automatically refunded to your wallet without arbitration."}
       </div>
 
-      {/* Delivered Data Payload Collapsible */}
+      {/* Delivered Data Payload View (Prominent Metric Cards + Verified JSON) */}
       {receipt.dataPayload && (
-        <div className="border border-white/10 rounded-xl overflow-hidden bg-black/40">
-          <button
-            type="button"
-            onClick={() => setDetailsOpen(!detailsOpen)}
-            className="w-full flex items-center justify-between px-4 py-2.5 text-xs text-neutral-300 hover:text-white hover:bg-white/[0.02] transition-colors cursor-pointer"
-          >
-            <div className="flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
-              <span>Delivered Query Data Payload</span>
-              <span className="text-[10px] text-neutral-500 font-mono">
-                ({isFresh ? "Verified Fresh" : "Stale Artifact"})
-              </span>
-            </div>
-            {detailsOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-          </button>
-
-          {detailsOpen && (
-            <div className="p-4 border-t border-white/10 space-y-2">
-              <div className="flex items-center justify-between text-[11px] text-neutral-400 pb-2 border-b border-white/5">
-                <span>Block: #{String(receipt.dataPayload.monadBlockHeight || 38221410)}</span>
-                <span>Latency: {age.toFixed(1)}s</span>
-              </div>
-              <pre className="text-[11px] leading-relaxed text-cyan-200 overflow-x-auto p-3 rounded-lg bg-black/70 border border-white/5">
-                <code>{JSON.stringify(receipt.dataPayload, null, 2)}</code>
-              </pre>
-            </div>
-          )}
+        <div className="pt-2">
+          <DeliveredDataView
+            payload={receipt.dataPayload}
+            datasetName={datasetName}
+            observedAgeSeconds={age}
+            slaSeconds={freshnessSlaSeconds}
+            jobId={receipt.jobId}
+            txHash={receipt.txResolve || receipt.txFund}
+          />
         </div>
       )}
     </div>

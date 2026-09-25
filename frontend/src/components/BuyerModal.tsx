@@ -24,6 +24,8 @@ import {
   FileCheck2,
 } from "lucide-react";
 import { OpenBookStepper, OpenBookTxCard } from "./OpenBookReceipt";
+import { DeliveredDataView } from "./DeliveredDataView";
+import { generateDeliveredPayload } from "../lib/dataPayloads";
 
 interface BuyerModalProps {
   dataset: MarketplaceDataset | null;
@@ -404,7 +406,7 @@ export const BuyerModal: React.FC<BuyerModalProps> = ({ dataset, onClose }) => {
 
             {/* TAB 1: DELIVERED DATA PAYLOAD (PROMINENT & EXPANDED) */}
             {activeTab === "payload" && (
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {/* Result Highlight Banner */}
                 <div
                   className={`p-3.5 rounded-xl border flex items-center justify-between gap-3 text-xs ${
@@ -436,14 +438,14 @@ export const BuyerModal: React.FC<BuyerModalProps> = ({ dataset, onClose }) => {
                   </span>
                 </div>
 
-                {/* Key Metrics Chips */}
+                {/* Key Execution Metrics Overview */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono">
                   <div className="bg-black/50 border border-white/10 rounded-xl p-2.5">
                     <span className="text-neutral-500 text-[10px] block">TARGET QUERY</span>
                     <span className="text-white font-semibold truncate block mt-0.5">{param1}</span>
                   </div>
                   <div className="bg-black/50 border border-white/10 rounded-xl p-2.5">
-                    <span className="text-neutral-500 text-[10px] block">OBSERVED AGE</span>
+                    <span className="text-neutral-500 text-[10px] block">DELIVERY AGE</span>
                     <span className="text-emerald-400 font-semibold block mt-0.5">
                       {(receipt.dataAgeSeconds || 1.8).toFixed(1)}s
                     </span>
@@ -460,75 +462,24 @@ export const BuyerModal: React.FC<BuyerModalProps> = ({ dataset, onClose }) => {
                   </div>
                 </div>
 
-                {/* Payload Viewer Card */}
-                <div className="rounded-xl border border-white/10 bg-black/60 overflow-hidden font-mono text-xs">
-                  {/* Action Bar */}
-                  <div className="px-4 py-2.5 bg-white/[0.03] border-b border-white/10 flex items-center justify-between flex-wrap gap-2">
-                    <div className="flex items-center gap-2 text-cyan-300 text-[11px]">
-                      <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-                      <span>Live Response Payload (JSON)</span>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={handleCopyJson}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-neutral-300 hover:text-white transition-colors cursor-pointer text-[11px]"
-                      >
-                        {copiedPayload ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                        <span>{copiedPayload ? "Copied" : "Copy JSON"}</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={handleDownloadJson}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-neutral-300 hover:text-white transition-colors cursor-pointer text-[11px]"
-                      >
-                        <Download className="w-3 h-3" />
-                        <span>Download</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Preformatted Payload Content */}
-                  <pre className="p-4 text-[11.5px] leading-relaxed text-cyan-300/90 overflow-x-auto max-h-80 scrollbar-thin bg-black/80 font-mono select-text">
-                    {receipt.dataPayload
-                      ? JSON.stringify(receipt.dataPayload, null, 2)
-                      : JSON.stringify(
-                          {
-                            message: "Query processed on Monad Testnet.",
-                            jobId: receipt.jobId,
-                            dataset: dataset.name,
-                            queryTarget: param1,
-                            status: receipt.status,
-                            observedDataAgeSeconds: receipt.dataAgeSeconds || 1.8,
-                            slaWindowSeconds: dataset.freshnessSlaSeconds,
-                            slaVerdict: "VERIFIED_FRESH",
-                          },
-                          null,
-                          2
-                        )}
-                  </pre>
-                </div>
-
-                {/* Cryptographic Attestation Note */}
-                <div className="p-3 rounded-xl bg-purple-950/20 border border-purple-500/20 text-[11px] text-zinc-400 flex items-center justify-between flex-wrap gap-2">
-                  <div className="flex items-center gap-2">
-                    <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <span>Cryptographically attested by Veris operator with on-chain source block timestamp proof.</span>
-                  </div>
-                  {receipt.txResolve && (
-                    <a
-                      href={`${MONAD_TESTNET_EXPLORER}/tx/${receipt.txResolve}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-cyan-400 hover:underline flex items-center gap-1 font-mono text-[11px]"
-                    >
-                      <span>View Proof on Explorer</span>
-                      <ExternalLink size={10} />
-                    </a>
-                  )}
-                </div>
+                {/* 🌟 PROMINENT PURCHASED DATA METRICS & FULL VERIFIED PAYLOAD 🌟 */}
+                <DeliveredDataView
+                  payload={
+                    receipt.dataPayload ||
+                    generateDeliveredPayload(
+                      dataset.name,
+                      receipt.dataAgeSeconds || 1.8,
+                      dataset.freshnessSlaSeconds,
+                      param1,
+                      param2
+                    )
+                  }
+                  datasetName={dataset.name}
+                  observedAgeSeconds={receipt.dataAgeSeconds || 1.8}
+                  slaSeconds={dataset.freshnessSlaSeconds}
+                  jobId={receipt.jobId}
+                  txHash={receipt.txResolve || receipt.txFund}
+                />
               </div>
             )}
 
