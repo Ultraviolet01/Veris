@@ -129,10 +129,12 @@ export function SiteNav({ activeView, setActiveView, onOpenSellerStudio }: SiteN
             </button>
           )}
 
-          <div className="flex items-center gap-2">
-            {isLoggedIn && <UsdcBalanceBadge />}
-            <DynamicWidget />
-          </div>
+          {isLoggedIn && (
+            <div className="flex items-center gap-2">
+              <UsdcBalanceBadge />
+              <DynamicWidget />
+            </div>
+          )}
 
           {/* Mobile menu hamburger */}
           <button
