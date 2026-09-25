@@ -14,22 +14,15 @@ import {
   Send,
   RefreshCw,
   AlertCircle,
-  ExternalLink,
-  ShieldCheck,
-  Bot,
   Terminal,
   Maximize2,
   Minimize2,
   Play,
   RotateCcw,
-  CheckCircle2,
-  HelpCircle,
   Trash2,
   Info,
 } from "lucide-react";
-import { OpenBookStepper, OpenBookTxCard, HashChip, truncateHash } from "./OpenBookReceipt";
-import { DataPayloadViewer } from "./DataPayloadViewer";
-import type { DeliveredPayload } from "../lib/dataPayloads";
+import { OpenBookStepper, OpenBookTxCard } from "./OpenBookReceipt";
 
 /** Convert dataset name to standard slug */
 function datasetToSlug(name: string): string {

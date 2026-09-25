@@ -238,7 +238,7 @@ export function OpenBookTxCard({
   budgetUsdc: number;
   freshnessSlaSeconds: number;
 }) {
-  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(true);
   const isRefunded = receipt.verdict === "REFUNDED" || receipt.outcome === "refunded" || receipt.status === "Refunded";
   const stampVerdict = receipt.verdict || (isRefunded ? "REFUNDED" : "APPROVED");
   const age = receipt.dataAgeSeconds ?? 2.4;

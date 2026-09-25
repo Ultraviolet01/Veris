@@ -169,6 +169,234 @@ Do NOT include markdown backticks or any explanatory text outside the JSON.`;
           return;
         }
 
+        // ── 1-Click Autonomous Escrow & Attestation Endpoint ─────────────────
+        if (req.url === '/api/purchase' && req.method === 'POST') {
+          let body = '';
+          req.on('data', chunk => { body += chunk; });
+          req.on('end', async () => {
+            try {
+              const {
+                datasetName = 'Kuru CLOB Order Book Depth',
+                sellerId = '0x76657269732e6574680000000000000000000000000000000000000000000000',
+                budgetUsdc = 0.25,
+                freshnessSlaSeconds = 10,
+                param1,
+                param2,
+                isFresh = true,
+                customAgeSeconds,
+              } = JSON.parse(body || '{}');
+
+              const env = loadEnv('', process.cwd(), '');
+              const operatorKey = (env.OPERATOR_PRIVATE_KEY || process.env.OPERATOR_PRIVATE_KEY || '').trim() as `0x${string}`;
+              if (!operatorKey || !operatorKey.startsWith('0x')) {
+                res.statusCode = 500;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ error: 'OPERATOR_PRIVATE_KEY is not configured in .env.' }));
+                return;
+              }
+
+              const acpCoreAddress = (env.VITE_ACP_CORE_ADDRESS || '0x5898d78653C1f691431A045580c1b1D6aFC28AF9') as `0x${string}`;
+              const slaEvaluatorAddress = (env.VITE_SLA_EVALUATOR_ADDRESS || '0xfc10869E2Bb2E8060DD59C59D0aAB01475bb75A0') as `0x${string}`;
+              const rpcUrl = env.VITE_MONAD_TESTNET_RPC || 'https://testnet-rpc.monad.xyz';
+
+              const { createPublicClient, createWalletClient, http, parseAbi, parseUnits, keccak256, encodeAbiParameters, stringToBytes, defineChain } = await import('viem');
+              const { privateKeyToAccount } = await import('viem/accounts');
+
+              const monadTestnet = defineChain({
+                id: 10143,
+                name: 'Monad Testnet',
+                nativeCurrency: { name: 'MON', symbol: 'MON', decimals: 18 },
+                rpcUrls: { default: { http: [rpcUrl] } },
+              });
+
+              const operatorAccount = privateKeyToAccount(operatorKey);
+              const publicClient = createPublicClient({ chain: monadTestnet, transport: http(rpcUrl) });
+              const operatorWallet = createWalletClient({ account: operatorAccount, chain: monadTestnet, transport: http(rpcUrl) });
+
+              const budgetWei = parseUnits(budgetUsdc.toString(), 6);
+              const expiredAt = BigInt(Math.floor(Date.now() / 1000) + 3600);
+
+              const acpAbi = parseAbi([
+                'function createJob(address provider, address evaluator, uint256 expiredAt, string calldata description, address hook) external returns (uint256 jobId)',
+                'function setBudget(uint256 jobId, uint256 amount, bytes calldata optParams) external',
+                'function fund(uint256 jobId, uint256 expectedBudget, bytes calldata optParams) external',
+              ]);
+
+              // 1. Create Job on ACPCore
+              console.log(`[API /api/purchase] Creating Job on ACPCore for ${datasetName}...`);
+              const txCreate = await operatorWallet.writeContract({
+                address: acpCoreAddress,
+                abi: acpAbi,
+                functionName: 'createJob',
+                args: [slaEvaluatorAddress, slaEvaluatorAddress, expiredAt, `Veris Feed: ${datasetName}`, slaEvaluatorAddress],
+              });
+              const rcCreate = await publicClient.waitForTransactionReceipt({ hash: txCreate });
+              let jobId = 0n;
+              for (const log of rcCreate.logs) {
+                if (log.address.toLowerCase() === acpCoreAddress.toLowerCase() && log.topics[1]) {
+                  jobId = BigInt(log.topics[1]);
+                  break;
+                }
+              }
+              if (jobId === 0n) jobId = BigInt(Date.now());
+              console.log(`[API /api/purchase] Job #${jobId.toString()} created: ${txCreate}`);
+
+              // 2. Set Budget on ACPCore
+              const txBudget = await operatorWallet.writeContract({
+                address: acpCoreAddress,
+                abi: acpAbi,
+                functionName: 'setBudget',
+                args: [jobId, budgetWei, '0x'],
+              });
+              await publicClient.waitForTransactionReceipt({ hash: txBudget });
+
+              // 3. Fund Job
+              const txFund = await operatorWallet.writeContract({
+                address: acpCoreAddress,
+                abi: acpAbi,
+                functionName: 'fund',
+                args: [jobId, budgetWei, '0x'],
+              });
+              await publicClient.waitForTransactionReceipt({ hash: txFund });
+              console.log(`[API /api/purchase] Job #${jobId.toString()} funded: ${txFund}`);
+
+              // 4. Generate Authenticated Payload & Operator Attestation
+              const currentBlock = await publicClient.getBlock({ blockTag: 'latest' });
+              const currentTs = currentBlock.timestamp;
+              const ageSeconds = isFresh ? (customAgeSeconds ?? 1.8) : (customAgeSeconds ?? (freshnessSlaSeconds + 4.5));
+              const sourceBlockTimestamp = currentTs - BigInt(Math.round(ageSeconds));
+              const sourceBlockNumber = currentBlock.number;
+
+              const payloadStr = JSON.stringify({
+                dataset: datasetName,
+                param1,
+                param2,
+                sourceBlock: Number(sourceBlockNumber),
+                sourceBlockTimestamp: Number(sourceBlockTimestamp),
+                isFresh,
+              });
+              const dataHash = keccak256(stringToBytes(payloadStr));
+
+              const msgHash = keccak256(
+                encodeAbiParameters(
+                  [
+                    { type: 'bytes32' },
+                    { type: 'uint256' },
+                    { type: 'bytes32' },
+                    { type: 'uint256' },
+                    { type: 'uint256' },
+                  ],
+                  [
+                    sellerId as `0x${string}`,
+                    jobId,
+                    dataHash,
+                    sourceBlockNumber,
+                    sourceBlockTimestamp,
+                  ]
+                )
+              );
+
+              const signature = await operatorAccount.signMessage({ message: { raw: msgHash } });
+
+              const att = {
+                sellerId: sellerId as `0x${string}`,
+                jobId,
+                dataHash,
+                sourceBlockNumber,
+                sourceBlockTimestamp,
+                signature,
+              };
+
+              const encodedAtt = encodeAbiParameters(
+                [
+                  {
+                    type: 'tuple',
+                    components: [
+                      { name: 'sellerId', type: 'bytes32' },
+                      { name: 'jobId', type: 'uint256' },
+                      { name: 'dataHash', type: 'bytes32' },
+                      { name: 'sourceBlockNumber', type: 'uint256' },
+                      { name: 'sourceBlockTimestamp', type: 'uint256' },
+                      { name: 'signature', type: 'bytes' },
+                    ],
+                  },
+                ],
+                [att]
+              );
+
+              const SLA_ABI = [
+                {
+                  type: 'function',
+                  name: 'resolve',
+                  stateMutability: 'nonpayable',
+                  inputs: [
+                    {
+                      name: 'att',
+                      type: 'tuple',
+                      components: [
+                        { name: 'sellerId', type: 'bytes32' },
+                        { name: 'jobId', type: 'uint256' },
+                        { name: 'dataHash', type: 'bytes32' },
+                        { name: 'sourceBlockNumber', type: 'uint256' },
+                        { name: 'sourceBlockTimestamp', type: 'uint256' },
+                        { name: 'signature', type: 'bytes' },
+                      ],
+                    },
+                    { name: 'encodedAtt', type: 'bytes' },
+                  ],
+                  outputs: [],
+                },
+              ] as const;
+
+              console.log(`[API /api/purchase] Resolving SLA on Monad Testnet for job #${jobId.toString()}...`);
+              const txResolve = await operatorWallet.writeContract({
+                address: slaEvaluatorAddress,
+                abi: SLA_ABI,
+                functionName: 'resolve',
+                args: [att, encodedAtt],
+              } as any);
+              await publicClient.waitForTransactionReceipt({ hash: txResolve });
+              console.log(`[API /api/purchase] Resolved on-chain: ${txResolve}`);
+
+              const finalStatus = isFresh ? 'SLA Met' : 'Refunded';
+              const verdict = isFresh ? 'APPROVED' : 'REFUNDED';
+              const outcome = isFresh ? 'settled' : 'refunded';
+
+              res.setHeader('Content-Type', 'application/json');
+              res.end(
+                JSON.stringify({
+                  success: true,
+                  jobId: jobId.toString(),
+                  txCreate,
+                  txSetBudget: txBudget,
+                  txFund,
+                  txResolve,
+                  budgetUsdc,
+                  datasetName,
+                  freshnessSlaSeconds,
+                  status: finalStatus,
+                  verdict,
+                  outcome,
+                  dataAgeSeconds: ageSeconds,
+                  sellerAmountUsdc: isFresh ? Number((budgetUsdc * 0.98).toFixed(4)) : 0,
+                  treasuryAmountUsdc: isFresh ? Number((budgetUsdc * 0.02).toFixed(4)) : 0,
+                  resolvedAt: new Date().toLocaleTimeString(),
+                  operatorAddress: operatorAccount.address,
+                  blockHeight: Number(sourceBlockNumber),
+                  signature,
+                })
+              );
+            } catch (err: unknown) {
+              const msg = err instanceof Error ? err.message : String(err);
+              console.error('[API /api/purchase Error]:', msg);
+              res.statusCode = 500;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ error: msg }));
+            }
+          });
+          return;
+        }
+
         // ── Real Operator Attestation & Settlement Endpoint ─────────────────
         if (req.url === '/api/operator-resolve' && req.method === 'POST') {
           let body = '';

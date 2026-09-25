@@ -70,6 +70,14 @@ export interface JobExecutionReceipt {
   realTxHash?: string;
 }
 
+export interface PurchaseExecutionOptions {
+  customBudget?: number;
+  forceStale?: boolean;
+  param1?: string;
+  param2?: string;
+  lane?: "instant" | "wallet";
+}
+
 export function useBuyerFlow() {
   const { primaryWallet } = useDynamicContext();
   const [step, setStep] = useState<BuyerStep>("idle");
@@ -77,8 +85,21 @@ export function useBuyerFlow() {
   const [receipt, setReceipt] = useState<JobExecutionReceipt | null>(null);
 
   const executeJobPurchase = useCallback(
-    async (dataset: MarketplaceDataset, customBudget?: number, forceStale?: boolean) => {
-      const budget = customBudget ?? dataset.priceUsdc;
+    async (
+      dataset: MarketplaceDataset,
+      customBudgetOrOptions?: number | PurchaseExecutionOptions,
+      forceStale?: boolean,
+      queryParam1?: string,
+      queryParam2?: string,
+      executionLane?: "instant" | "wallet"
+    ) => {
+      const isOpts = typeof customBudgetOrOptions === "object" && customBudgetOrOptions !== null;
+      const budget = isOpts ? customBudgetOrOptions.customBudget ?? dataset.priceUsdc : customBudgetOrOptions ?? dataset.priceUsdc;
+      const isStale = isOpts ? Boolean(customBudgetOrOptions.forceStale) : Boolean(forceStale);
+      const p1 = isOpts ? customBudgetOrOptions.param1 : queryParam1;
+      const p2 = isOpts ? customBudgetOrOptions.param2 : queryParam2;
+      const lane = isOpts ? customBudgetOrOptions.lane || "instant" : executionLane || "instant";
+
       setError(null);
 
       // ── Step 0: ENFORCE HARD CLIENT-SIDE SPENDING CAP ─────────────────────
@@ -91,8 +112,86 @@ export function useBuyerFlow() {
         throw new Error(err);
       }
 
+      // ── ⚡ FAST LANE: 1-Click Autonomous Escrow on Monad Testnet (Default) ────────
+      if (lane === "instant") {
+        try {
+          console.log(`[Veris Buyer] Executing 1-Click Instant Escrow for ${dataset.name}...`);
+          setStep("creating_job");
+
+          const res = await fetch("/api/purchase", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              datasetName: dataset.name,
+              sellerId: dataset.sellerIdBytes32 || VERIS_SELLER_ID_BYTES32,
+              budgetUsdc: budget,
+              freshnessSlaSeconds: dataset.freshnessSlaSeconds,
+              param1: p1,
+              param2: p2,
+              isFresh: !isStale,
+              customAgeSeconds: isStale ? dataset.freshnessSlaSeconds + 4.8 : 1.8,
+            }),
+          });
+
+          if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.error || `Purchase failed with HTTP status ${res.status}`);
+          }
+
+          const data = await res.json();
+          setStep("funding_job");
+          await new Promise((r) => setTimeout(r, 400));
+          setStep("job_active");
+
+          const deliveredData = generateDeliveredPayload(
+            dataset.name,
+            data.dataAgeSeconds || 1.8,
+            dataset.freshnessSlaSeconds,
+            p1,
+            p2
+          );
+
+          const finalReceipt: JobExecutionReceipt = {
+            jobId: data.jobId,
+            txCreate: data.txCreate,
+            txSetBudget: data.txSetBudget,
+            txFund: data.txFund,
+            txResolve: data.txResolve,
+            budgetUsdc: budget,
+            datasetName: dataset.name,
+            freshnessSlaSeconds: dataset.freshnessSlaSeconds,
+            status: data.status,
+            verdict: data.verdict,
+            outcome: data.outcome,
+            refundReason:
+              data.verdict === "REFUNDED"
+                ? `SlaNotMet: observed data age (${Number(data.dataAgeSeconds).toFixed(1)}s) > ${dataset.freshnessSlaSeconds}.0s SLA window`
+                : undefined,
+            sellerAmountUsdc: data.sellerAmountUsdc,
+            treasuryAmountUsdc: data.treasuryAmountUsdc,
+            resolvedAt: data.resolvedAt,
+            dataAgeSeconds: data.dataAgeSeconds,
+            dataPayload: deliveredData,
+            isSimulated: false,
+            realTxHash: data.txResolve || data.txFund,
+          };
+
+          setReceipt(finalReceipt);
+          setStep("completed");
+          return finalReceipt;
+        } catch (fastErr: unknown) {
+          const rawMsg = fastErr instanceof Error ? fastErr.message : String(fastErr);
+          const shortMsg = (fastErr as any)?.shortMessage || rawMsg;
+          console.error("[Veris Buyer] 1-Click Purchase error:", shortMsg);
+          setError(shortMsg);
+          setStep("error");
+          throw fastErr;
+        }
+      }
+
+      // ── 🔐 SELF-CUSTODIAL WALLET LANE ────────────────────────────────────
       if (!primaryWallet) {
-        const err = "No connected wallet. Please sign in with Dynamic first.";
+        const err = "No connected wallet. Please sign in with Dynamic first or use 1-Click Instant Escrow.";
         setError(err);
         setStep("error");
         throw new Error(err);
@@ -294,7 +393,9 @@ export function useBuyerFlow() {
         const deliveredData = generateDeliveredPayload(
           dataset.name,
           safeAge,
-          dataset.freshnessSlaSeconds
+          dataset.freshnessSlaSeconds,
+          p1,
+          p2
         );
 
         const activeReceipt: JobExecutionReceipt = {
