@@ -307,7 +307,7 @@ export function AgentPlayground() {
           Watch Funds Escrow & Resolve On-Chain
         </h2>
         <p className="mt-2 text-sm text-neutral-400 leading-relaxed">
-          In Veris (like OpenBook), funds are <strong>deducted first into the ACPCore escrow contract</strong>.
+          In Veris, funds are <strong>deducted first into the ACPCore escrow contract</strong>.
           The operator signs a block freshness attestation: if fresh, funds route to the seller (98%) and treasury (2%); if stale, <strong>100% is automatically refunded to the buyer</strong>.
         </p>
 

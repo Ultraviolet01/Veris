@@ -31,8 +31,8 @@ import { OpenBookStepper, OpenBookTxCard, HashChip, truncateHash } from "./OpenB
 import { DataPayloadViewer } from "./DataPayloadViewer";
 import type { DeliveredPayload } from "../lib/dataPayloads";
 
-/** Convert dataset name to standard OpenBook slug */
-export function datasetToSlug(name: string): string {
+/** Convert dataset name to standard slug */
+function datasetToSlug(name: string): string {
   const lower = name.toLowerCase();
   if (lower.includes("kuru")) return "kuru-clob-dex";
   if (lower.includes("aave")) return "aave-v3-rates";
@@ -43,7 +43,7 @@ export function datasetToSlug(name: string): string {
 }
 
 /** Find dataset by slug, first name token, or partial name */
-export function findDataset(query: string): MarketplaceDataset | undefined {
+function findDataset(query: string): MarketplaceDataset | undefined {
   const clean = query.trim().toLowerCase();
   return (
     FEATURED_DATASETS.find((d) => datasetToSlug(d.name) === clean) ||
@@ -208,7 +208,7 @@ export const AgentChatbot: React.FC = () => {
         sender: "veris",
         kind: "help",
         tableData: {
-          summary: "VERIS PROTOCOL COMMAND REGISTRY (OpenBook Contract v2)",
+          summary: "VERIS PROTOCOL COMMAND REGISTRY (ACP Contract v2)",
           columns: ["COMMAND", "SYNTAX", "DESCRIPTION"],
           rows: [
             {
@@ -574,9 +574,6 @@ export const AgentChatbot: React.FC = () => {
             </div>
             <span className="text-xs font-bold font-mono tracking-wide">
               {isOpen ? "Close Console" : "Veris Console"}
-            </span>
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-neutral-300 font-mono">
-              OpenBook
             </span>
           </div>
         </button>
