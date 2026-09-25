@@ -515,7 +515,7 @@ export const BuyerModal: React.FC<BuyerModalProps> = ({ dataset, onClose }) => {
                 <div className="p-3 rounded-xl bg-purple-950/20 border border-purple-500/20 text-[11px] text-zinc-400 flex items-center justify-between flex-wrap gap-2">
                   <div className="flex items-center gap-2">
                     <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <span>Cryptographically attested by Veris operator with Monad VM block timestamp proof.</span>
+                    <span>Cryptographically attested by Veris operator with on-chain source block timestamp proof.</span>
                   </div>
                   {receipt.txResolve && (
                     <a

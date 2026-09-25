@@ -27,15 +27,15 @@ import { OpenBookStepper, OpenBookTxCard } from "./OpenBookReceipt";
 /** Convert dataset name to standard slug */
 function datasetToSlug(name: string): string {
   const lower = name.toLowerCase();
-  if (lower.includes("weather") || lower.includes("noaa") || lower.includes("radar")) return "noaa-weather";
-  if (lower.includes("equit") || lower.includes("clob") || lower.includes("order book")) return "global-clob-equities";
-  if (lower.includes("macro") || lower.includes("commodit")) return "macro-commodities";
-  if (lower.includes("aviation") || lower.includes("flight") || lower.includes("ads-b")) return "flight-telemetry";
   if (lower.includes("aave")) return "aave-v3-rates";
-  if (lower.includes("uniswap")) return "uniswap-v3-twap";
+  if (lower.includes("uniswap") || lower.includes("twap")) return "uniswap-v3-twap";
+  if (lower.includes("pyth") || lower.includes("oracle")) return "pyth-oracles";
+  if (lower.includes("kuru") || lower.includes("clob")) return "kuru-clob-dex";
   if (lower.includes("opensea") || lower.includes("seaport")) return "opensea-seaport";
-  if (lower.includes("overtime") || lower.includes("sport")) return "sports-odds";
-  if (lower.includes("polymarket")) return "polymarket-macro";
+  if (lower.includes("curve") || lower.includes("stableswap")) return "curve-stableswap";
+  if (lower.includes("compound") || lower.includes("comet")) return "compound-v3-comet";
+  if (lower.includes("perpl") || lower.includes("derivative")) return "perpl-derivatives";
+  if (lower.includes("monad") || lower.includes("mempool") || lower.includes("sequencer")) return "monad-sequencer-telemetry";
   return lower.replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 }
 
@@ -98,10 +98,10 @@ export interface ChatMessage {
 
 const SAMPLE_COMMANDS = [
   "datasets",
-  "quote noaa-weather",
-  "quote global-clob-equities",
-  "buy noaa-weather --max 0.25 --fresh 15",
-  "buy macro-commodities --max 0.45 --fresh 5",
+  "quote aave-v3-rates",
+  "quote uniswap-v3-twap",
+  "buy aave-v3-rates --max 0.25 --fresh 10",
+  "buy pyth-oracles --max 0.25 --fresh 3",
   "balance",
   "help",
 ];
@@ -935,7 +935,7 @@ export const AgentChatbot: React.FC = () => {
                   type="text"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder="e.g. buy noaa-weather --max 0.25 --fresh 15 (or ask in plain English)..."
+                  placeholder="e.g. buy aave-v3-rates --max 0.25 --fresh 10 (or ask in plain English)..."
                   disabled={isLoading}
                   className="w-full bg-white/[0.04] border border-white/10 rounded-xl pl-7 pr-3.5 py-2.5 text-xs text-white placeholder-neutral-500 font-mono focus:outline-none focus:border-cyan-400/60 transition-colors"
                 />

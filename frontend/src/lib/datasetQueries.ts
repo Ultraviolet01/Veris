@@ -1,11 +1,11 @@
 /**
- * datasetQueries.ts — Granular Query Options & Schema Definitions for Datasets
+ * datasetQueries.ts — Granular Query Options & Schema Definitions for On-Chain Datasets
  *
  * Allows buyers to specify exactly what market, pair, metric, or contract
  * parameters they want to purchase before committing escrow.
  *
- * NOTE: The datasets represent universal real-world, financial, and digital data.
- * Monad is strictly the payment gateway and settlement layer for escrow.
+ * NOTE: All datasets are purely on-chain protocols across the EVM ecosystem.
+ * Monad is the high-speed escrow payment gateway and settlement layer.
  */
 
 export interface DatasetQueryConfig {
@@ -19,165 +19,166 @@ export interface DatasetQueryConfig {
 }
 
 export const DATASET_QUERY_CONFIGS: Record<string, DatasetQueryConfig> = {
-  // 1. NOAA Doppler Radar & Weather
-  weather: {
-    queryTitle: "Select Meteorological Station & Atmospheric Metric",
-    param1Label: "Weather Station / Airport",
-    param1Options: [
-      "JFK International (New York)",
-      "Heathrow Airport (London)",
-      "Haneda Airport (Tokyo)",
-      "Frankfurt Airport (Germany)",
-      "Sydney Kingsford Smith (Australia)",
-    ],
-    param2Label: "Observation Metric",
-    param2Options: [
-      "Doppler Radar Reflectivity & Storm Velocity",
-      "Barometric Pressure & Humidity Gradient",
-      "Surface Wind Shear & Vector Turbulence",
-      "GOES-16 Satellite Infrared Thermal Density",
-    ],
-    endpointTemplate: (p1, p2) =>
-      `GET /api/v1/weather/noaa/station?station=${encodeURIComponent(p1)}&metric=${encodeURIComponent(p2 || "radar")}&attestation=ecdsa`,
-    querySummary: (p1, p2) => `NOAA station feed for ${p1} (${p2 || "Doppler Radar"})`,
-  },
-
-  // 2. Global Equities & Crypto L2 Order Book Stream
-  equities: {
-    queryTitle: "Select Trading Pair & Order Book Depth",
-    param1Label: "Market / Symbol",
-    param1Options: ["BTC / USD", "ETH / USD", "NVDA / USD", "AAPL / USD", "EUR / USD", "SOL / USD"],
-    param2Label: "Order Book Depth",
-    param2Options: ["L2 Top 5 (Ultra-Fast)", "L2 Top 20 (Deep Book)", "L3 Full Tick Snapshot"],
-    endpointTemplate: (p1, p2) =>
-      `GET /api/v1/clob/orderbook?symbol=${encodeURIComponent(p1)}&depth=${p2?.includes("20") ? "20" : p2?.includes("Full") ? "all" : "5"}&attestation=ecdsa`,
-    querySummary: (p1, p2) => `Global L2 order book for ${p1} (${p2 || "Top 5"})`,
-  },
-
-  // 3. Global Macro & Commodities Index Feeds
-  macro: {
-    queryTitle: "Select Macro Benchmark & Delivery Stream",
-    param1Label: "Commodity / Macro Asset",
-    param1Options: [
-      "WTI Crude Oil ($/bbl)",
-      "Gold Spot (XAU/USD)",
-      "US 10Y Treasury Yield",
-      "EUR / USD FX Spot",
-      "S&P 500 Index (SPX)",
-    ],
-    param2Label: "Data Scope",
-    param2Options: [
-      "Real-Time Spot Tick & Bid/Ask",
-      "1-Minute VWAP & Open Interest",
-      "Implied Volatility Surface Index",
-    ],
-    endpointTemplate: (p1, p2) =>
-      `GET /api/v1/macro/commodities/quote?symbol=${encodeURIComponent(p1)}&scope=${encodeURIComponent(p2 || "spot")}`,
-    querySummary: (p1, p2) => `CME/ICE Macro feed for ${p1} (${p2})`,
-  },
-
-  // 4. FlightAware Global Aviation & ADS-B Telemetry
-  aviation: {
-    queryTitle: "Select Airspace Corridor & Telemetry Metric",
-    param1Label: "Flight Corridor / Oceanic Track",
-    param1Options: [
-      "North Atlantic Tracks (NAT JFK-LHR)",
-      "Transpacific Air Corridor (PAC HKG-LAX)",
-      "US Northeast Megalopolis (BOS-DCA)",
-      "Eurocontrol Central Core (FRA-CDG)",
-    ],
-    param2Label: "Telemetry Stream",
-    param2Options: [
-      "ADS-B Transponder Coordinates & Altitude",
-      "Active Squawk Codes & Divert Alerts",
-      "Runway Dwell & Airport Delay Matrix",
-    ],
-    endpointTemplate: (p1, p2) =>
-      `GET /api/v1/aviation/adsb/corridor?corridor=${encodeURIComponent(p1)}&telemetry=${encodeURIComponent(p2 || "adsb")}`,
-    querySummary: (p1, p2) => `Global aviation telemetry: ${p1} (${p2})`,
-  },
-
-  // 5. Aave V3 Multi-Chain Lending Rates & APY
+  // 1. Aave V3 Lending Rates & Liquidity
   aave: {
-    queryTitle: "Select Lending Asset & Interest Rate Mode",
+    queryTitle: "Select Reserve Asset & Rate Parameters",
     param1Label: "Asset Reserve",
     param1Options: ["USDC", "WETH", "WBTC", "USDT", "DAI"],
     param2Label: "Metrics Requested",
-    param2Options: ["Supply & Borrow APY", "Utilization & Liquidity Caps", "Health Factor & Risk Parameters"],
+    param2Options: [
+      "Supply & Variable Borrow APY",
+      "Reserve Utilization & Liquidity Caps",
+      "Health Factor & Risk Parameters",
+    ],
     endpointTemplate: (p1, p2) =>
-      `GET /api/v1/lending/aave-v3/rates?asset=${encodeURIComponent(p1)}&scope=${encodeURIComponent(p2 || "rates")}`,
-    querySummary: (p1, p2) => `Aave V3 pool telemetry for ${p1} (${p2})`,
+      `GET /api/v1/lending/aave-v3/rates?asset=${encodeURIComponent(p1)}&scope=${encodeURIComponent(p2 || "rates")}&chain=ethereum`,
+    querySummary: (p1, p2) => `Aave V3 pool telemetry for ${p1} (${p2 || "APY"})`,
   },
 
-  // 6. Uniswap V3 Multi-Chain Liquidity & TWAP
+  // 2. Uniswap V3 Pool TWAP & Ticks
   uniswap: {
-    queryTitle: "Select Liquidity Pool & Fee Tier",
+    queryTitle: "Select Liquidity Pool & Observation Window",
     param1Label: "Liquidity Pool",
-    param1Options: ["WETH / USDC (0.05%)", "WBTC / WETH (0.05%)", "USDC / USDT (0.01%)", "ARB / USDC (0.05%)"],
+    param1Options: [
+      "WETH / USDC (0.05%)",
+      "WBTC / WETH (0.05%)",
+      "USDC / USDT (0.01%)",
+      "ARB / USDC (0.05%)",
+    ],
     param2Label: "Observation Mode",
-    param2Options: ["Spot Tick & Geometric TWAP", "Liquidity Density Curve", "Fee Growth Global 0/1"],
+    param2Options: [
+      "Spot Tick & Geometric TWAP",
+      "Liquidity Density Curve",
+      "Fee Growth Global 0/1",
+    ],
     endpointTemplate: (p1, p2) =>
       `GET /api/v1/dex/uniswap-v3/twap?pool=${encodeURIComponent(p1)}&metric=${encodeURIComponent(p2 || "twap")}`,
-    querySummary: (p1, p2) => `Uniswap V3 ${p1} (${p2})`,
+    querySummary: (p1, p2) => `Uniswap V3 ${p1} (${p2 || "TWAP"})`,
   },
 
-  // 7. OpenSea Seaport Floor Prices & Trades
+  // 3. Pyth Network On-Chain Price Oracles
+  pyth: {
+    queryTitle: "Select Pyth Price Feed & Confidence Interval",
+    param1Label: "Oracle Price Feed",
+    param1Options: ["BTC / USD", "ETH / USD", "SOL / USD", "AVAX / USD", "LINK / USD"],
+    param2Label: "Confidence Mode",
+    param2Options: [
+      "99.9% Strict Confidence Interval",
+      "95% Standard Interval",
+      "EMA Price & Publisher Count",
+    ],
+    endpointTemplate: (p1, p2) =>
+      `GET /api/v1/oracle/pyth/price?symbol=${encodeURIComponent(p1)}&confidence=${encodeURIComponent(p2 || "strict")}`,
+    querySummary: (p1, p2) => `Pyth on-chain oracle: ${p1} (${p2 || "99.9%"})`,
+  },
+
+  // 4. Kuru CLOB On-Chain Order Book Depth
+  kuru: {
+    queryTitle: "Select Market Pair & Order Book Depth",
+    param1Label: "Market / Symbol",
+    param1Options: ["BTC / USD", "ETH / USD", "MON / USDC", "SOL / USD"],
+    param2Label: "Order Book Depth",
+    param2Options: ["L2 Top 5 (Ultra-Fast)", "L2 Top 20 (Deep Book)", "L3 Full Tick Snapshot"],
+    endpointTemplate: (p1, p2) =>
+      `GET /api/v1/clob/kuru/orderbook?pair=${encodeURIComponent(p1)}&depth=${p2?.includes("20") ? "20" : p2?.includes("Full") ? "all" : "5"}&attestation=ecdsa`,
+    querySummary: (p1, p2) => `Kuru CLOB L2 snapshot for ${p1} (${p2 || "Top 5"})`,
+  },
+
+  // 5. OpenSea Seaport 1.6 Protocol Trades & Floor
   opensea: {
-    queryTitle: "Select Digital Asset Collection & Feed Type",
-    param1Label: "Collection",
+    queryTitle: "Select Collection & Protocol Event Feed",
+    param1Label: "NFT Collection",
     param1Options: ["CryptoPunks", "Bored Ape Yacht Club", "Pudgy Penguins", "Milady Maker"],
     param2Label: "Feed Depth",
-    param2Options: ["Instant Floor Price & Top Bid", "Recent OrderFulfilled Stream", "Listing Velocity Index"],
+    param2Options: [
+      "Instant Floor Price & Top Bid",
+      "Recent OrderFulfilled Stream",
+      "Listing Velocity Index",
+    ],
     endpointTemplate: (p1, p2) =>
       `GET /api/v1/nft/seaport/floor?collection=${encodeURIComponent(p1)}&filter=${encodeURIComponent(p2 || "floor")}`,
-    querySummary: (p1, p2) => `Seaport ${p1} (${p2})`,
+    querySummary: (p1, p2) => `Seaport ${p1} (${p2 || "Floor"})`,
   },
 
-  // 8. Overtime Live Sports Odds & Moneyline Spreads
-  sports: {
-    queryTitle: "Select Sporting Event & Market Type",
-    param1Label: "Upcoming Fixture",
+  // 6. Curve Finance Multi-Asset Stable-Peg Deviations
+  curve: {
+    queryTitle: "Select Curve Pool & Peg Deviation Metric",
+    param1Label: "Curve Pool",
     param1Options: [
-      "EPL: Arsenal vs Manchester City",
-      "NFL: Kansas City Chiefs vs SF 49ers",
-      "NBA: Boston Celtics vs LA Lakers",
-      "UCL: Real Madrid vs Bayern Munich",
+      "3pool (DAI / USDC / USDT)",
+      "stETH / ETH Concentrated",
+      "crvUSD / USDC (0.01%)",
     ],
-    param2Label: "Odds Market",
-    param2Options: ["Moneyline & Winner Odds", "Spread & Handicap (-2.5)", "Over / Under Points (47.5)"],
+    param2Label: "Stability Metric",
+    param2Options: [
+      "Virtual Price & Peg Deviation Ratio",
+      "Amplification Parameter A & Invariant",
+      "Pool Imbalance & Fee Accrual",
+    ],
     endpointTemplate: (p1, p2) =>
-      `GET /api/v1/sports/overtime/odds?fixture=${encodeURIComponent(p1)}&market=${encodeURIComponent(p2 || "all")}`,
-    querySummary: (p1, p2) => `Overtime live odds: ${p1} (${p2})`,
+      `GET /api/v1/dex/curve/pool?pool=${encodeURIComponent(p1)}&metric=${encodeURIComponent(p2 || "virtual-price")}`,
+    querySummary: (p1, p2) => `Curve ${p1} (${p2 || "Virtual Price"})`,
   },
 
-  // 9. Polymarket Global Macro & Prediction Curves
-  polymarket: {
-    queryTitle: "Select Prediction Market & Probability Curve",
-    param1Label: "Market Proposition",
-    param1Options: [
-      "Fed Interest Rate Cut (Next FOMC Meeting)",
-      "US CPI Inflation YoY < 2.5% in 2026",
-      "Global Crude Oil Price > $90 in Q3",
-      "SpaceX Starship Orbital Landing Success",
+  // 7. Compound V3 (Comet) Collateral & Borrow
+  compound: {
+    queryTitle: "Select Comet Market & Utilization Slice",
+    param1Label: "Comet Market",
+    param1Options: ["USDC Market (WETH/WBTC/ARB)", "USDT Market (WETH/WBTC)"],
+    param2Label: "Collateral Metric",
+    param2Options: [
+      "Borrow Rate & Base Utilization",
+      "Collateral Asset Absorption Queue",
+      "Reserves & Protocol Equity",
     ],
-    param2Label: "Data Scope",
-    param2Options: ["Probability Curve & Best Bids/Asks", "24h Volume & Open Interest", "Outcome Settlement Shares"],
     endpointTemplate: (p1, p2) =>
-      `GET /api/v1/prediction/polymarket/book?market=${encodeURIComponent(p1)}&scope=${encodeURIComponent(p2 || "curve")}`,
-    querySummary: (p1, p2) => `Polymarket: ${p1} (${p2})`,
+      `GET /api/v1/lending/compound-v3/market?market=${encodeURIComponent(p1)}&scope=${encodeURIComponent(p2 || "utilization")}`,
+    querySummary: (p1, p2) => `Compound Comet ${p1} (${p2 || "Utilization"})`,
+  },
+
+  // 8. Perpl Perpetual Futures Mark Price & Funding
+  perpl: {
+    queryTitle: "Select Perp Contract & Metric",
+    param1Label: "Perpetual Contract",
+    param1Options: ["BTC-PERP", "ETH-PERP", "SOL-PERP", "MON-PERP"],
+    param2Label: "Data Slice",
+    param2Options: [
+      "Mark Price & 1h Funding Rate",
+      "Open Interest & Long/Short Skew",
+      "Liquidation Cluster Map",
+    ],
+    endpointTemplate: (p1, p2) =>
+      `GET /api/v1/derivatives/perpl/feed?market=${encodeURIComponent(p1)}&stream=${encodeURIComponent(p2 || "mark")}`,
+    querySummary: (p1, p2) => `Perpl ${p1} telemetry (${p2 || "Mark"})`,
+  },
+
+  // 9. Monad Sequencer Queue & Validator Mempool Telemetry
+  monad: {
+    queryTitle: "Select Validator Telemetry & Risk Stream",
+    param1Label: "Stream Metric",
+    param1Options: [
+      "Base Fee Delta & Optimal Tip Estimator",
+      "Sequencer Queue Latency & Congestion Index",
+      "Block Space Utilization %",
+      "Reorg Risk & Finality Gauge",
+    ],
+    param2Label: "Sampling Frequency",
+    param2Options: ["Block-by-Block (sub-second)", "Rolling 10-Block Exponential Average"],
+    endpointTemplate: (p1, p2) =>
+      `GET /api/v1/telemetry/monad/mempool?metric=${encodeURIComponent(p1)}&sample=${encodeURIComponent(p2 || "realtime")}`,
+    querySummary: (p1, p2) => `Monad node telemetry: ${p1} (${p2 || "Realtime"})`,
   },
 };
 
 export function getQueryConfigForDataset(datasetName: string): DatasetQueryConfig {
   const lower = datasetName.toLowerCase();
-  if (lower.includes("weather") || lower.includes("noaa") || lower.includes("radar")) return DATASET_QUERY_CONFIGS.weather;
-  if (lower.includes("equit") || lower.includes("order book") || lower.includes("clob") || lower.includes("nasdaq")) return DATASET_QUERY_CONFIGS.equities;
-  if (lower.includes("macro") || lower.includes("commodit") || lower.includes("crude") || lower.includes("gold")) return DATASET_QUERY_CONFIGS.macro;
-  if (lower.includes("aviation") || lower.includes("flight") || lower.includes("ads-b")) return DATASET_QUERY_CONFIGS.aviation;
-  if (lower.includes("aave") || lower.includes("lending")) return DATASET_QUERY_CONFIGS.aave;
+  if (lower.includes("aave")) return DATASET_QUERY_CONFIGS.aave;
   if (lower.includes("uniswap") || lower.includes("twap")) return DATASET_QUERY_CONFIGS.uniswap;
+  if (lower.includes("pyth") || lower.includes("oracle")) return DATASET_QUERY_CONFIGS.pyth;
+  if (lower.includes("kuru") || lower.includes("clob")) return DATASET_QUERY_CONFIGS.kuru;
   if (lower.includes("opensea") || lower.includes("seaport") || lower.includes("nft")) return DATASET_QUERY_CONFIGS.opensea;
-  if (lower.includes("sport") || lower.includes("overtime")) return DATASET_QUERY_CONFIGS.sports;
-  if (lower.includes("polymarket") || lower.includes("prediction")) return DATASET_QUERY_CONFIGS.polymarket;
-  return DATASET_QUERY_CONFIGS.weather;
+  if (lower.includes("curve") || lower.includes("stableswap")) return DATASET_QUERY_CONFIGS.curve;
+  if (lower.includes("compound") || lower.includes("comet")) return DATASET_QUERY_CONFIGS.compound;
+  if (lower.includes("perpl") || lower.includes("derivative")) return DATASET_QUERY_CONFIGS.perpl;
+  return DATASET_QUERY_CONFIGS.monad;
 }

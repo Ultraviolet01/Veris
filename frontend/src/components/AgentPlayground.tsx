@@ -26,7 +26,7 @@ import type { JobExecutionReceipt } from "../hooks/useBuyerFlow";
 
 export function AgentPlayground() {
   const [selectedScenario, setSelectedScenario] = useState<"fresh" | "stale" | "invalid">("fresh");
-  const [selectedDataset, setSelectedDataset] = useState<string>("noaa-weather");
+  const [selectedDataset, setSelectedDataset] = useState<string>("aave-v3-rates");
   const [executionMode, setExecutionMode] = useState<"live" | "simulated">("simulated");
   const [isRunning, setIsRunning] = useState<boolean>(false);
   const [currentStep, setCurrentStep] = useState<number>(0);
@@ -446,11 +446,12 @@ export function AgentPlayground() {
                   onChange={(e) => setSelectedDataset(e.target.value)}
                   className="w-full bg-[#050609] border border-white/10 rounded-xl px-3.5 py-2.5 text-white font-mono text-xs focus:outline-none focus:border-purple-500"
                 >
-                  <option value="noaa-weather">NOAA Doppler Radar & Global Weather Telemetry</option>
-                  <option value="global-clob-equities">Global Equities & Crypto L2 Order Book Stream</option>
-                  <option value="macro-commodities">Global Macro & Commodities Index Feeds (Crude / Gold)</option>
-                  <option value="aviation-telemetry">FlightAware Global Aviation & ADS-B Telemetry</option>
-                  <option value="aave-v3-rates">Aave V3 Multi-Chain Lending Rates & APY</option>
+                  <option value="aave-v3-rates">Aave V3 Lending Rates & Reserve Liquidity (Ethereum)</option>
+                  <option value="uniswap-v3-twap">Uniswap V3 High-Frequency Pool TWAP & Ticks</option>
+                  <option value="pyth-oracles">Pyth Network On-Chain Price Attestations</option>
+                  <option value="kuru-clob-dex">Kuru CLOB On-Chain Order Book Depth (Monad)</option>
+                  <option value="opensea-seaport">OpenSea Seaport 1.6 Protocol Trades & Floor</option>
+                  <option value="curve-stableswap">Curve Finance Multi-Asset Stable-Peg Deviations</option>
                 </select>
               </div>
 
