@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useBuyerFlow } from "../hooks/useBuyerFlow";
 import { useUsdcBalance } from "../hooks/useUsdcBalance";
+import { useIsLoggedIn, useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import {
   HARD_SPENDING_CAP_USDC,
   MONAD_TESTNET_EXPLORER,
+  ADDRESSES,
   type MarketplaceDataset,
 } from "../lib/contracts";
 import { getQueryConfigForDataset } from "../lib/datasetQueries";
@@ -34,7 +36,10 @@ interface BuyerModalProps {
 
 export const BuyerModal: React.FC<BuyerModalProps> = ({ dataset, onClose }) => {
   const { step, error, receipt, executeJobPurchase, reset } = useBuyerFlow();
-  const { usdcBalance, isLoading: isBalanceLoading } = useUsdcBalance();
+  const isLoggedIn = useIsLoggedIn();
+  const { setShowAuthFlow } = useDynamicContext();
+  const { usdcBalance, isLoading: isBalanceLoading, refetch, walletAddress } = useUsdcBalance();
+  const [copiedToken, setCopiedToken] = useState<boolean>(false);
 
   const queryConfig = dataset ? getQueryConfigForDataset(dataset.name) : null;
   const [param1, setParam1] = useState<string>(
@@ -292,17 +297,102 @@ export const BuyerModal: React.FC<BuyerModalProps> = ({ dataset, onClose }) => {
 
             {/* 3. Budget Input & Hard Cap Verification */}
             <div className="rounded-xl border border-white/10 bg-black/30 p-3.5 space-y-2">
-              <div className="flex items-center justify-between text-xs">
+              <div className="flex items-center justify-between text-xs flex-wrap gap-2">
                 <label className="font-semibold text-zinc-300">
                   Escrow Budget (USDC)
                 </label>
-                <div className="flex items-center gap-1 text-zinc-400">
-                  <span>Balance:</span>
-                  <span className="font-mono font-semibold text-cyan-300">
-                    {isBalanceLoading ? "..." : `${usdcBalance} USDC`}
-                  </span>
-                </div>
+                {isLoggedIn ? (
+                  <div className="flex items-center gap-2 text-zinc-400">
+                    <span className="text-[11px] font-mono text-zinc-500">
+                      {walletAddress ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}` : "Connected"}
+                    </span>
+                    <div className="flex items-center gap-1 font-mono">
+                      <span className="font-semibold text-cyan-300">
+                        {isBalanceLoading ? "..." : `${usdcBalance} USDC`}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => refetch()}
+                        title="Refresh balance from Monad RPC"
+                        className="p-0.5 hover:text-white transition-colors cursor-pointer text-zinc-500"
+                      >
+                        <RefreshCw size={11} className={isBalanceLoading ? "animate-spin text-cyan-400" : ""} />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowAuthFlow(true)}
+                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-[#836ef9]/20 hover:bg-[#836ef9]/30 text-[#a393f9] text-[11px] font-semibold transition-colors cursor-pointer border border-[#836ef9]/30"
+                  >
+                    <Wallet size={11} />
+                    <span>Connect Wallet</span>
+                  </button>
+                )}
               </div>
+
+              {!isLoggedIn && (
+                <div className="p-2.5 rounded-lg bg-[#836ef9]/10 border border-[#836ef9]/20 text-[11px] text-zinc-300 flex items-center justify-between gap-2">
+                  <span>Connect your wallet to query your Monad Testnet USDC balance.</span>
+                  <button
+                    type="button"
+                    onClick={() => setShowAuthFlow(true)}
+                    className="px-2.5 py-1 bg-[#836ef9] hover:bg-[#725cf7] text-white rounded-md text-[11px] font-semibold shrink-0 cursor-pointer shadow-sm"
+                  >
+                    Connect
+                  </button>
+                </div>
+              )}
+
+              {isLoggedIn && parseFloat(usdcBalance) === 0 && (
+                <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300 space-y-1.5">
+                  <div className="flex items-center justify-between font-semibold text-[11.5px]">
+                    <span className="flex items-center gap-1.5">
+                      <AlertCircle size={13} className="text-amber-400 shrink-0" />
+                      0.00 USDC in connected wallet ({walletAddress?.slice(0, 6)}...{walletAddress?.slice(-4)})
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => refetch()}
+                      className="text-[11px] text-amber-400 hover:underline flex items-center gap-1 cursor-pointer font-mono"
+                    >
+                      <RefreshCw size={10} className={isBalanceLoading ? "animate-spin" : ""} /> Recheck
+                    </button>
+                  </div>
+                  <p className="text-[11px] leading-relaxed text-zinc-400">
+                    If you deposited testnet USDC to another wallet (e.g. MetaMask vs Dynamic Embedded Wallet), switch to that wallet or verify the official Monad Testnet USDC contract:
+                  </p>
+                  <div className="flex items-center justify-between gap-2 pt-0.5 text-[10.5px] font-mono">
+                    <span className="text-zinc-400 truncate">Token: <code className="text-cyan-300">0x534b2f3A...43A3</code></span>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(ADDRESSES.paymentToken);
+                          setCopiedToken(true);
+                          setTimeout(() => setCopiedToken(false), 2000);
+                        }}
+                        className="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white transition-colors cursor-pointer border border-white/10"
+                      >
+                        {copiedToken ? "Copied!" : "Copy Token Address"}
+                      </button>
+                      <a
+                        href={`${MONAD_TESTNET_EXPLORER}/token/${ADDRESSES.paymentToken}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-cyan-400 hover:text-cyan-300 transition-colors inline-flex items-center gap-1 border border-white/10"
+                      >
+                        <span>MonadScan</span>
+                        <ExternalLink size={9} />
+                      </a>
+                    </div>
+                  </div>
+                  <div className="text-[10.5px] text-zinc-400 pt-1 border-t border-white/5">
+                    💡 Tip: You can switch to <strong className="text-amber-300 font-semibold">1-Click Instant Escrow</strong> above to run verified on-chain queries without needing USDC in your connected wallet.
+                  </div>
+                </div>
+              )}
 
               <div className="relative">
                 <input

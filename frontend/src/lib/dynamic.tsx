@@ -26,8 +26,6 @@ export function DynamicProvider({ children }: { children: React.ReactNode }) {
       settings={{
         environmentId: ENVIRONMENT_ID,
         walletConnectors: [EthereumWalletConnectors],
-        // Hide external crypto wallets (MetaMask, Coinbase, etc.) so user only sees Dynamic sign-in
-        walletsFilter: () => [],
         overrides: {
           // Explicitly register Monad Testnet (Chain ID 10143)
           evmNetworks: (networks) => mergeNetworks([MONAD_TESTNET_EVM as never], networks),
