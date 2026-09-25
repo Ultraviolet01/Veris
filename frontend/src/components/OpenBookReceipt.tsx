@@ -86,7 +86,7 @@ export function OpenBookStepper({
       return currentStep === "validating_cap" ? "running" : currentStep !== "idle" ? "done" : "waiting";
     }
     if (stepKey === "pay") {
-      if (currentStep === "approving" || currentStep === "creating_job" || currentStep === "funding_job") return "running";
+      if (currentStep === "approving" || currentStep === "creating_job" || currentStep === "setting_budget" || currentStep === "funding_job") return "running";
       if (currentStep === "job_active") return "done";
       return "waiting";
     }

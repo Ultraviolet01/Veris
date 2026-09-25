@@ -156,7 +156,20 @@ export async function purchase(params: PurchaseParams): Promise<PurchaseReceipt>
     }
   }
 
-  console.log(`[purchase] Job #${jobId} created. Now funding escrow with ${quote.price} USDC...`);
+  // ── Set Job Budget if not already configured ────────────────────────────
+  try {
+    const jobState = await acpCore.getJob(jobId);
+    if (jobState.budget !== priceRaw) {
+      console.log(`[purchase] Setting budget on Job #${jobId} to ${quote.price} USDC...`);
+      const txSetBudget = await acpCore.setBudget(jobId, priceRaw, "0x");
+      await txSetBudget.wait(1);
+      console.log(`[purchase] Job #${jobId} budget set.`);
+    }
+  } catch (budgetErr) {
+    console.warn(`[purchase] Warning during setBudget check:`, budgetErr);
+  }
+
+  console.log(`[purchase] Job #${jobId} budget configured. Now funding escrow with ${quote.price} USDC...`);
 
   const txFund = await acpCore.fund(jobId, priceRaw, "0x");
   const receiptFund = await txFund.wait(1);

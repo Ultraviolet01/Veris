@@ -486,6 +486,8 @@ export function AgentPlayground() {
                         ? "Approving USDC Allowance..."
                         : buyerStep === "creating_job"
                         ? "Creating Job on ACPCore..."
+                        : buyerStep === "setting_budget"
+                        ? "Setting Escrow Budget on ACPCore..."
                         : buyerStep === "funding_job"
                         ? "Deducting USDC into Escrow (fund)..."
                         : "Resolving Attestation on Monad VM..."}

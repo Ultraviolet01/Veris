@@ -4,6 +4,7 @@
 
 export const ACP_CORE_ABI = [
   "function createJob(address provider, address evaluator, uint256 expiredAt, string calldata description, address hook) external returns (uint256 jobId)",
+  "function setBudget(uint256 jobId, uint256 amount, bytes calldata optParams) external",
   "function fund(uint256 jobId, uint256 expectedBudget, bytes calldata optParams) external",
   "function claimRefund(uint256 jobId) external",
   "function getJob(uint256 jobId) external view returns (tuple(address client, address provider, address evaluator, address hook, address token, uint256 budget, uint256 expiredAt, uint8 status))",

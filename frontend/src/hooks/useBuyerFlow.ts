@@ -41,6 +41,7 @@ export type BuyerStep =
   | "validating_cap"
   | "approving"
   | "creating_job"
+  | "setting_budget"
   | "funding_job"
   | "job_active"
   | "completed"
@@ -50,6 +51,7 @@ export interface JobExecutionReceipt {
   jobId: string;
   txApprove?: string;
   txCreate?: string;
+  txSetBudget?: string;
   txFund?: string;
   txResolve?: string;
   budgetUsdc: number;
@@ -234,10 +236,40 @@ export function useBuyerFlow() {
 
         console.log(`[Veris Buyer] Real on-chain Job #${realJobId.toString()} created.`);
 
-        // ── Step 3: Call ACPCore.fund(...) ─────────────────────────────────
+        // ── Step 3: Call ACPCore.setBudget(...) ────────────────────────────
+        // ACPCore requires budget to be explicitly configured on an Open job before fund()
+        const existingJob = (await publicClient.readContract({
+          address: ADDRESSES.acpCore,
+          abi: ACP_CORE_ABI,
+          functionName: "getJob",
+          args: [realJobId],
+        })) as { budget: bigint };
+
+        let setBudgetTxHash: string | undefined;
+        if (existingJob.budget !== budgetWei) {
+          setStep("setting_budget");
+          console.log(`[Veris Buyer] Step 3/4: Setting budget ${budget} USDC for Job #${realJobId}...`);
+          setBudgetTxHash = await walletClient.sendTransaction({
+            account: walletClient.account,
+            chain: walletClient.chain,
+            to: ADDRESSES.acpCore,
+            data: encodeFunctionData({
+              abi: ACP_CORE_ABI,
+              functionName: "setBudget",
+              args: [realJobId, budgetWei, "0x"],
+            }),
+          });
+          console.log("[Veris Buyer] setBudget tx sent:", setBudgetTxHash);
+          await publicClient.waitForTransactionReceipt({
+            hash: setBudgetTxHash as `0x${string}`,
+          });
+          console.log(`[Veris Buyer] Job #${realJobId} budget set to ${budget} USDC.`);
+        }
+
+        // ── Step 4: Call ACPCore.fund(...) ─────────────────────────────────
         // THIS IS WHERE FUNDS ARE ACTUALLY DEDUCTED FROM THE BUYER INTO ESCROW!
         setStep("funding_job");
-        console.log(`[Veris Buyer] Step 3/3: Locking ${budget} USDC into escrow for Job #${realJobId}...`);
+        console.log(`[Veris Buyer] Step 4/4: Locking ${budget} USDC into escrow for Job #${realJobId}...`);
 
         const fundTxHash = await walletClient.sendTransaction({
           account: walletClient.account,
@@ -269,6 +301,7 @@ export function useBuyerFlow() {
           jobId: realJobId.toString(),
           txApprove: approveTxHash,
           txCreate: createTxHash,
+          txSetBudget: setBudgetTxHash,
           txFund: fundTxHash,
           budgetUsdc: budget,
           datasetName: dataset.name,
@@ -281,7 +314,7 @@ export function useBuyerFlow() {
         setReceipt(activeReceipt);
         setStep("job_active");
 
-        // ── Step 4: Request Operator Attestation & SlaEvaluator Resolution ───
+        // ── Step 5: Request Operator Attestation & SlaEvaluator Resolution ───
         console.log(`[Veris Buyer] Requesting operator attestation and on-chain SLA resolution...`);
         let resolveTxHash: string | undefined;
         let isFreshOutcome = !forceStale;
@@ -336,9 +369,10 @@ export function useBuyerFlow() {
         setStep("completed");
         return completedReceipt;
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        console.error("[Veris Buyer] Purchase error:", msg);
-        setError(msg);
+        const rawMsg = err instanceof Error ? err.message : String(err);
+        const shortMsg = (err as any)?.shortMessage || (err as any)?.cause?.message || rawMsg;
+        console.error("[Veris Buyer] Purchase error:", shortMsg, err);
+        setError(shortMsg);
         setStep("error");
         throw err;
       }
