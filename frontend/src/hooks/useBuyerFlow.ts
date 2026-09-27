@@ -32,9 +32,9 @@ import {
   type MarketplaceDataset,
 } from "../lib/contracts";
 import {
-  generateDeliveredPayload,
   type DeliveredPayload,
 } from "../lib/dataPayloads";
+import { fetchRealLivePayload } from "../lib/realDataFetcher";
 
 export type BuyerStep =
   | "idle"
@@ -72,6 +72,7 @@ export interface JobExecutionReceipt {
 
 export interface PurchaseExecutionOptions {
   customBudget?: number;
+  customFreshnessSlaSeconds?: number;
   forceStale?: boolean;
   param1?: string;
   param2?: string;
@@ -95,6 +96,9 @@ export function useBuyerFlow() {
     ) => {
       const isOpts = typeof customBudgetOrOptions === "object" && customBudgetOrOptions !== null;
       const budget = isOpts ? customBudgetOrOptions.customBudget ?? dataset.priceUsdc : customBudgetOrOptions ?? dataset.priceUsdc;
+      const freshnessSla = isOpts && customBudgetOrOptions.customFreshnessSlaSeconds !== undefined
+        ? customBudgetOrOptions.customFreshnessSlaSeconds
+        : dataset.freshnessSlaSeconds;
       const isStale = isOpts ? Boolean(customBudgetOrOptions.forceStale) : Boolean(forceStale);
       const p1 = isOpts ? customBudgetOrOptions.param1 : queryParam1;
       const p2 = isOpts ? customBudgetOrOptions.param2 : queryParam2;
@@ -125,11 +129,11 @@ export function useBuyerFlow() {
               datasetName: dataset.name,
               sellerId: dataset.sellerIdBytes32 || VERIS_SELLER_ID_BYTES32,
               budgetUsdc: budget,
-              freshnessSlaSeconds: dataset.freshnessSlaSeconds,
+              freshnessSlaSeconds: freshnessSla,
               param1: p1,
               param2: p2,
               isFresh: !isStale,
-              customAgeSeconds: isStale ? dataset.freshnessSlaSeconds + 4.8 : 1.8,
+              customAgeSeconds: isStale ? Math.max(freshnessSla + 4.8, 12.0) : undefined,
             }),
           });
 
@@ -143,7 +147,7 @@ export function useBuyerFlow() {
           await new Promise((r) => setTimeout(r, 400));
           setStep("job_active");
 
-          const deliveredData = generateDeliveredPayload(
+          const deliveredData = data.realPayload || await fetchRealLivePayload(
             dataset.name,
             data.dataAgeSeconds || 1.8,
             dataset.freshnessSlaSeconds,
@@ -159,13 +163,13 @@ export function useBuyerFlow() {
             txResolve: data.txResolve,
             budgetUsdc: budget,
             datasetName: dataset.name,
-            freshnessSlaSeconds: dataset.freshnessSlaSeconds,
+            freshnessSlaSeconds: freshnessSla,
             status: data.status,
             verdict: data.verdict,
             outcome: data.outcome,
             refundReason:
               data.verdict === "REFUNDED"
-                ? `SlaNotMet: observed data age (${Number(data.dataAgeSeconds).toFixed(1)}s) > ${dataset.freshnessSlaSeconds}.0s SLA window`
+                ? `SlaNotMet: observed data age (${Number(data.dataAgeSeconds).toFixed(1)}s) > ${freshnessSla}.0s SLA window`
                 : undefined,
             sellerAmountUsdc: data.sellerAmountUsdc,
             treasuryAmountUsdc: data.treasuryAmountUsdc,
@@ -178,6 +182,22 @@ export function useBuyerFlow() {
 
           setReceipt(finalReceipt);
           setStep("completed");
+
+          // Dispatch real-time balance update
+          if (data.verdict === "APPROVED" || data.status === "SLA Met" || data.outcome === "settled") {
+            window.dispatchEvent(
+              new CustomEvent("veris:balance-update", {
+                detail: { action: "deduct", amount: budget, jobId: data.jobId },
+              })
+            );
+          } else if (data.verdict === "REFUNDED" || data.outcome === "refunded") {
+            window.dispatchEvent(
+              new CustomEvent("veris:balance-update", {
+                detail: { action: "refund", amount: 0, jobId: data.jobId },
+              })
+            );
+          }
+
           return finalReceipt;
         } catch (fastErr: unknown) {
           const rawMsg = fastErr instanceof Error ? fastErr.message : String(fastErr);
@@ -387,10 +407,17 @@ export function useBuyerFlow() {
         });
         console.log(`[Veris Buyer] Escrow funded! USDC successfully transferred from buyer to ACPCore.`);
 
+        // Real-time balance deduction upon escrow deposit
+        window.dispatchEvent(
+          new CustomEvent("veris:balance-update", {
+            detail: { action: "deduct", amount: budget },
+          })
+        );
+
         const safeAge = Number(
           (Math.random() * (dataset.freshnessSlaSeconds * 0.35) + 0.6).toFixed(1)
         );
-        const deliveredData = generateDeliveredPayload(
+        const deliveredData = await fetchRealLivePayload(
           dataset.name,
           safeAge,
           dataset.freshnessSlaSeconds,
@@ -468,6 +495,15 @@ export function useBuyerFlow() {
 
         setReceipt(completedReceipt);
         setStep("completed");
+
+        if (!isFreshOutcome) {
+          window.dispatchEvent(
+            new CustomEvent("veris:balance-update", {
+              detail: { action: "refund", amount: budget },
+            })
+          );
+        }
+
         return completedReceipt;
       } catch (err: unknown) {
         const rawMsg = err instanceof Error ? err.message : String(err);

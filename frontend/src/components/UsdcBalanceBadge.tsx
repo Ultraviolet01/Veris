@@ -10,12 +10,14 @@ import {
   Droplets,
   Info,
   ChevronDown,
+  PlusCircle,
 } from "lucide-react";
 
 export const UsdcBalanceBadge: React.FC = () => {
-  const { usdcBalance, monBalance, isLoading, refetch, walletAddress } = useUsdcBalance();
+  const { usdcBalance, monBalance, isLoading, refetch, addFunds, walletAddress } = useUsdcBalance();
   const [isOpen, setIsOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [addedSuccess, setAddedSuccess] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown on click outside
@@ -157,6 +159,25 @@ export const UsdcBalanceBadge: React.FC = () => {
 
           {/* Quick Actions & Faucet Links */}
           <div className="space-y-1.5 pt-1">
+            {/* 1-Click Instant Testnet Faucet Button */}
+            <button
+              type="button"
+              onClick={() => {
+                addFunds(10);
+                setAddedSuccess(true);
+                setTimeout(() => setAddedSuccess(false), 2500);
+              }}
+              className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-gradient-to-r from-emerald-600/25 to-teal-600/25 hover:from-emerald-600/35 hover:to-teal-600/35 border border-emerald-500/40 text-xs font-semibold text-emerald-300 hover:text-white transition-all cursor-pointer shadow-sm shadow-emerald-950/40"
+            >
+              <div className="flex items-center gap-2">
+                <PlusCircle className="w-3.5 h-3.5 text-emerald-400" />
+                <span>{addedSuccess ? "Added +10.00 USDC!" : "Claim +10.00 Testnet USDC"}</span>
+              </div>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                Instant Top-Up
+              </span>
+            </button>
+
             <a
               href="https://faucet.circle.com"
               target="_blank"

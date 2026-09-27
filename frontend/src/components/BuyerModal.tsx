@@ -361,7 +361,7 @@ export const BuyerModal: React.FC<BuyerModalProps> = ({ dataset, onClose }) => {
                     </button>
                   </div>
                   <p className="text-[11px] leading-relaxed text-zinc-400">
-                    If you deposited testnet USDC to another wallet (e.g. MetaMask vs Dynamic Embedded Wallet), switch to that wallet or verify the official Monad Testnet USDC contract:
+                    If you deposited testnet USDC to another wallet, transfer it to your Dynamic Google Embedded Wallet or verify the official Monad Testnet USDC contract:
                   </p>
                   <div className="flex items-center justify-between gap-2 pt-0.5 text-[10.5px] font-mono">
                     <span className="text-zinc-400 truncate">Token: <code className="text-cyan-300">0x534b2f3A...43A3</code></span>

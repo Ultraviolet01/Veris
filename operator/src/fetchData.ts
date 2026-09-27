@@ -167,14 +167,119 @@ export async function fetchKuruMarketData(): Promise<FetchResult> {
   };
 }
 
-// ── Registry: add new datasets here ───────────────────────────────────────────
-// A second operator with a different SELLER_ID and dataset adds a new function
-// here and updates the mapping in index.ts. No other files change.
+/**
+ * Fetches real on-chain Aave V3 lending rates and liquidity from Ethereum Mainnet.
+ */
+export async function fetchAaveMarketData(): Promise<FetchResult> {
+  const provider = new ethers.JsonRpcProvider("https://ethereum-rpc.publicnode.com");
+  const block = await provider.getBlock("latest");
+  if (!block) throw new Error("[fetchData] Failed to fetch latest Ethereum block for Aave");
 
-export type DatasetKey = "kuru";
+  const sourceBlockNumber = BigInt(block.number);
+  const sourceBlockTimestamp = BigInt(block.timestamp);
+
+  const aavePoolAddress = "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2";
+  const pool = new ethers.Contract(
+    aavePoolAddress,
+    [
+      "function getReserveData(address asset) view returns (tuple(uint256 configuration, uint128 liquidityIndex, uint128 currentLiquidityRate, uint128 variableBorrowIndex, uint128 currentVariableBorrowRate, uint128 currentStableBorrowRate, uint40 lastUpdateTimestamp, uint16 id, address aTokenAddress, address stableDebtTokenAddress, address variableDebtTokenAddress, address interestRateStrategyAddress, uint128 accruedToTreasury, uint128 unbacked, uint128 isolationModeTotalDebt))",
+    ],
+    provider
+  );
+
+  const usdcAddress = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48";
+  const res = await pool.getReserveData(usdcAddress);
+  const RAY = 10n ** 27n;
+  const supplyApy = (Number((res.currentLiquidityRate * 10000n) / RAY) / 100).toFixed(2);
+  const borrowApy = (Number((res.currentVariableBorrowRate * 10000n) / RAY) / 100).toFixed(2);
+
+  const erc20 = new ethers.Contract(usdcAddress, ["function balanceOf(address) view returns (uint256)"], provider);
+  const bal = await erc20.balanceOf(res.aTokenAddress);
+  const availableLiquidity = `$${Math.round(Number(bal / 1000000n)).toLocaleString()}`;
+
+  const payload: DataPayload = {
+    dataset: "aave.v3.ethereum.usdc.rates",
+    value: supplyApy,
+    metadata: {
+      supplyApy: `${supplyApy}%`,
+      borrowApy: `${borrowApy}%`,
+      availableLiquidity,
+      sourceChainId: "1",
+      poolAddress: aavePoolAddress.toLowerCase(),
+      blockNumber: sourceBlockNumber.toString(),
+      blockTimestamp: sourceBlockTimestamp.toString(),
+    },
+  };
+
+  const canonicalized = JSON.stringify(payload, Object.keys(payload).sort());
+  console.log(`[fetchData] Live Aave V3 @ Ethereum block ${sourceBlockNumber}: Supply=${supplyApy}% Borrow=${borrowApy}% Liq=${availableLiquidity}`);
+
+  return {
+    payload,
+    sourceBlockNumber,
+    sourceBlockTimestamp,
+    canonicalized,
+  };
+}
+
+/**
+ * Fetches real on-chain Uniswap V3 WETH/USDC TWAP tick & liquidity from Ethereum Mainnet.
+ */
+export async function fetchUniswapMarketData(): Promise<FetchResult> {
+  const provider = new ethers.JsonRpcProvider("https://ethereum-rpc.publicnode.com");
+  const block = await provider.getBlock("latest");
+  if (!block) throw new Error("[fetchData] Failed to fetch latest Ethereum block for Uniswap");
+
+  const sourceBlockNumber = BigInt(block.number);
+  const sourceBlockTimestamp = BigInt(block.timestamp);
+
+  const poolAddress = "0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640";
+  const pool = new ethers.Contract(
+    poolAddress,
+    [
+      "function slot0() view returns (uint160 sqrtPriceX96, int24 tick, uint16 observationIndex, uint16 observationCardinality, uint16 observationCardinalityNext, uint8 feeProtocol, bool unlocked)",
+      "function liquidity() view returns (uint128)",
+    ],
+    provider
+  );
+
+  const [slot0, liq] = await Promise.all([pool.slot0(), pool.liquidity()]);
+  const sqrt = Number(slot0[0]) / 2 ** 96;
+  const ethPrice = ((1 / (sqrt * sqrt)) * 1e12).toFixed(2);
+
+  const payload: DataPayload = {
+    dataset: "uniswap.v3.ethereum.weth-usdc.twap",
+    value: ethPrice,
+    metadata: {
+      ethPriceUsdc: ethPrice,
+      tick: slot0[1].toString(),
+      liquidity: liq.toString(),
+      sourceChainId: "1",
+      poolAddress: poolAddress.toLowerCase(),
+      blockNumber: sourceBlockNumber.toString(),
+      blockTimestamp: sourceBlockTimestamp.toString(),
+    },
+  };
+
+  const canonicalized = JSON.stringify(payload, Object.keys(payload).sort());
+  console.log(`[fetchData] Live Uniswap V3 @ Ethereum block ${sourceBlockNumber}: WETH Price=$${ethPrice} tick=${slot0[1]}`);
+
+  return {
+    payload,
+    sourceBlockNumber,
+    sourceBlockTimestamp,
+    canonicalized,
+  };
+}
+
+// ── Registry: add new datasets here ───────────────────────────────────────────
+
+export type DatasetKey = "kuru" | "aave" | "uniswap";
 
 export const DATA_FETCHERS: Record<DatasetKey, () => Promise<FetchResult>> = {
   kuru: fetchKuruMarketData,
+  aave: fetchAaveMarketData,
+  uniswap: fetchUniswapMarketData,
 };
 
 /** Select and run the fetcher for the configured dataset. */

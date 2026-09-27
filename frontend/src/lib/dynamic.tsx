@@ -26,6 +26,27 @@ export function DynamicProvider({ children }: { children: React.ReactNode }) {
       settings={{
         environmentId: ENVIRONMENT_ID,
         walletConnectors: [EthereumWalletConnectors],
+        // Eliminate MetaMask, Coinbase, Phantom, WalletConnect, and all external wallets
+        walletsFilter: () => [],
+        // Restrict social providers strictly to Google login
+        socialProvidersFilter: (providers) =>
+          providers.filter((p) => String(p).toLowerCase() === "google"),
+        // Extra safeguard: hide any wallet list containers, email fields, and dividers
+        cssOverrides: `
+          .wallet-list__container,
+          .wallet-list,
+          .wallet-list-item,
+          [data-testid="top-wallets-list"],
+          [data-testid="wallet-list"],
+          .login-with-email-wallet-list__container,
+          .login-with-email-form,
+          .email-form,
+          .divider,
+          .separator-container,
+          .social-sign-in__separator {
+            display: none !important;
+          }
+        `,
         overrides: {
           // Explicitly register Monad Testnet (Chain ID 10143)
           evmNetworks: (networks) => mergeNetworks([MONAD_TESTNET_EVM as never], networks),

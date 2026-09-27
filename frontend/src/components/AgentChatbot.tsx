@@ -45,15 +45,49 @@ function datasetToSlug(name: string): string {
   return lower.replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 }
 
-/** Find dataset by slug, first name token, or partial name */
+const DOMAIN_KEYWORDS: { datasetSlugPart: string; keywords: string[] }[] = [
+  { datasetSlugPart: "curve", keywords: ["curve", "virtual price", "stableswap", "peg", "imbalance", "imbalances", "3pool", "multi-asset"] },
+  { datasetSlugPart: "aave", keywords: ["aave", "lending", "borrow rate", "supply apy", "reserve liquidity"] },
+  { datasetSlugPart: "uniswap", keywords: ["uniswap", "twap", "ticks", "spot tick", "pool twap"] },
+  { datasetSlugPart: "pyth", keywords: ["pyth", "confidence interval", "oracle publisher", "price feed"] },
+  { datasetSlugPart: "kuru", keywords: ["kuru", "clob", "order book", "orderbook", "depth within 2%"] },
+  { datasetSlugPart: "seaport", keywords: ["seaport", "opensea", "nft", "floor price", "top bid"] },
+  { datasetSlugPart: "compound", keywords: ["compound", "comet", "collateral absorption", "debt utilization", "utilization"] },
+  { datasetSlugPart: "monad", keywords: ["monad mempool", "mempool", "congestion", "sequencer", "gas priority"] },
+  { datasetSlugPart: "perpl", keywords: ["perpl", "funding velocity", "mark price", "basis trade", "perpetual"] },
+  { datasetSlugPart: "overtime", keywords: ["overtime", "sport", "sports", "moneyline", "odds", "spread", "handicap", "arbitrage"] },
+];
+
+/** Find dataset by slug, first name token, partial name, or domain concept keywords */
 function findDataset(query: string): MarketplaceDataset | undefined {
   const clean = query.trim().toLowerCase();
-  return (
+
+  // 1. Direct slug or name match
+  const direct =
     FEATURED_DATASETS.find((d) => datasetToSlug(d.name) === clean) ||
     FEATURED_DATASETS.find((d) => d.name.toLowerCase().includes(clean)) ||
     FEATURED_DATASETS.find((d) => clean.includes(datasetToSlug(d.name).split("-")[0])) ||
-    FEATURED_DATASETS.find((d) => clean.includes(d.name.toLowerCase().split(" ")[0]))
-  );
+    FEATURED_DATASETS.find((d) => clean.includes(d.name.toLowerCase().split(" ")[0]));
+  if (direct) return direct;
+
+  // 2. Keyword score matching
+  let bestDataset: MarketplaceDataset | undefined;
+  let bestScore = 0;
+
+  for (const item of DOMAIN_KEYWORDS) {
+    let score = 0;
+    for (const kw of item.keywords) {
+      if (clean.includes(kw)) {
+        score += kw.length;
+      }
+    }
+    if (score > bestScore) {
+      bestScore = score;
+      bestDataset = FEATURED_DATASETS.find((d) => datasetToSlug(d.name).includes(item.datasetSlugPart));
+    }
+  }
+
+  return bestScore > 0 ? bestDataset : undefined;
 }
 
 export interface AskProposal {
@@ -117,6 +151,7 @@ export const AgentChatbot: React.FC = () => {
   const [isEnlarged, setIsEnlarged] = useState(false);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [activeExecutingMsgId, setActiveExecutingMsgId] = useState<string | null>(null);
 
   // Default welcome message matches OpenBook console tape
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -137,8 +172,6 @@ export const AgentChatbot: React.FC = () => {
   const { setShowAuthFlow, primaryWallet } = useDynamicContext();
   const { usdcBalance } = useUsdcBalance();
   const { executeJobPurchase, step: buyerStep } = useBuyerFlow();
-
-  const [activeExecutingMsgId, setActiveExecutingMsgId] = useState<string | null>(null);
 
   const scrollToBottom = () => {
     if (messagesContainerRef.current) {
@@ -396,7 +429,16 @@ export const AgentChatbot: React.FC = () => {
         setIsLoading(false);
         return;
       }
-      if (lower.includes("balance") || lower.includes("my funds") || lower.includes("how much usdc")) {
+      const isBalanceQuery =
+        (/\b(?:my\s+)?balance\b/i.test(lower) || lower.includes("my funds") || lower.includes("how much usdc")) &&
+        !lower.includes("imbalance") &&
+        !lower.includes("rebalance") &&
+        !lower.includes("budget") &&
+        !lower.includes("cents") &&
+        !lower.includes("scan") &&
+        !lower.includes("virtual");
+
+      if (isBalanceQuery) {
         handleSend("balance");
         setIsLoading(false);
         return;
@@ -442,6 +484,7 @@ export const AgentChatbot: React.FC = () => {
               (d.name.toLowerCase().includes(data.matchedDatasetName.toLowerCase()) ||
                 data.matchedDatasetName.toLowerCase().includes(d.name.toLowerCase()))
           ) ||
+          (data.matchedDatasetName ? findDataset(data.matchedDatasetName) : undefined) ||
           findDataset(normalized) ||
           FEATURED_DATASETS[1];
 
@@ -492,11 +535,11 @@ export const AgentChatbot: React.FC = () => {
       prev.map((m) =>
         m.id === msgId
           ? {
-              ...m,
-              executing: true,
-              executingStep: "approving",
-              forceStaleSelected: forceStale,
-            }
+            ...m,
+            executing: true,
+            executingStep: "approving",
+            forceStaleSelected: forceStale,
+          }
           : m
       )
     );
@@ -504,8 +547,11 @@ export const AgentChatbot: React.FC = () => {
     try {
       const receipt = await executeJobPurchase(
         proposal.dataset,
-        proposal.maxPrice,
-        forceStale
+        {
+          customBudget: proposal.maxPrice,
+          customFreshnessSlaSeconds: proposal.maxAgeSeconds,
+          forceStale: forceStale || proposal.forceStale,
+        }
       );
 
       // Update proposal message into completed OpenBookTxCard receipt
@@ -513,11 +559,11 @@ export const AgentChatbot: React.FC = () => {
         prev.map((m) =>
           m.id === msgId
             ? {
-                ...m,
-                executing: false,
-                kind: "receipt",
-                receipt,
-              }
+              ...m,
+              executing: false,
+              kind: "receipt",
+              receipt,
+            }
             : m
         )
       );
@@ -543,10 +589,10 @@ export const AgentChatbot: React.FC = () => {
         prev.map((m) =>
           m.id === msgId
             ? {
-                ...m,
-                executing: false,
-                error: msg,
-              }
+              ...m,
+              executing: false,
+              error: msg,
+            }
             : m
         )
       );
@@ -594,11 +640,10 @@ export const AgentChatbot: React.FC = () => {
       {/* ── 2. OpenBook Console Tape Dialog ─────────────────────────────────── */}
       {isOpen && (
         <div
-          className={`fixed z-[70] rounded-3xl border border-white/15 bg-[#070913]/95 shadow-2xl shadow-purple-950/60 backdrop-blur-2xl flex flex-col overflow-hidden animate-in fade-in duration-200 transition-all font-mono ${
-            isEnlarged
+          className={`fixed z-[70] rounded-3xl border border-white/15 bg-[#070913]/95 shadow-2xl shadow-purple-950/60 backdrop-blur-2xl flex flex-col overflow-hidden animate-in fade-in duration-200 transition-all font-mono ${isEnlarged
               ? "bottom-6 right-4 sm:right-6 md:right-8 w-[860px] max-w-[calc(100vw-2rem)] h-[820px] max-h-[90vh]"
               : "bottom-20 right-6 w-[470px] max-w-[calc(100vw-2rem)] h-[620px] max-h-[84vh]"
-          }`}
+            }`}
         >
           {/* Header Strip with Live Status Chips */}
           <div
@@ -750,17 +795,16 @@ export const AgentChatbot: React.FC = () => {
                               return (
                                 <td
                                   key={col}
-                                  className={`py-2 px-2.5 ${
-                                    isDataset
+                                  className={`py-2 px-2.5 ${isDataset
                                       ? "font-bold text-white"
                                       : isPrice
-                                      ? "text-cyan-300 font-semibold"
-                                      : isSla
-                                      ? "text-purple-300"
-                                      : isReliability
-                                      ? "text-emerald-400 font-semibold"
-                                      : "text-neutral-300"
-                                  }`}
+                                        ? "text-cyan-300 font-semibold"
+                                        : isSla
+                                          ? "text-purple-300"
+                                          : isReliability
+                                            ? "text-emerald-400 font-semibold"
+                                            : "text-neutral-300"
+                                    }`}
                                 >
                                   {val}
                                 </td>

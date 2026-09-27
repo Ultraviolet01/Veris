@@ -72,10 +72,17 @@ export function DeliveredDataView({
     nameLower.includes("twap") ||
     payload.twapPriceUsdc !== undefined;
 
+  const isPerpl =
+    nameLower.includes("perpl") ||
+    nameLower.includes("derivative") ||
+    nameLower.includes("futures") ||
+    payload.markPrice !== undefined;
+
   const isPyth =
-    nameLower.includes("pyth") ||
-    nameLower.includes("oracle") ||
-    payload.priceValue !== undefined;
+    !isPerpl &&
+    (nameLower.includes("pyth") ||
+      (nameLower.includes("oracle") && !nameLower.includes("overtime") && !nameLower.includes("polymarket")) ||
+      (payload.priceValue !== undefined && payload.markPrice === undefined));
 
   const isKuru =
     nameLower.includes("kuru") ||
@@ -92,12 +99,6 @@ export function DeliveredDataView({
     nameLower.includes("comet") ||
     payload.baseBorrowRateApy !== undefined ||
     payload.baseSupplyRateApy !== undefined;
-
-  const isPerpl =
-    nameLower.includes("perpl") ||
-    nameLower.includes("derivative") ||
-    nameLower.includes("futures") ||
-    payload.markPrice !== undefined;
 
   const isMonad =
     nameLower.includes("monad") ||
@@ -433,62 +434,74 @@ export function DeliveredDataView({
       )}
 
       {/* ── 4. PYTH ORACLES HERO ─────────────────────────────────────────── */}
-      {isPyth && (
-        <div className="rounded-2xl border-2 border-purple-500/40 bg-gradient-to-br from-[#120a28] via-[#090b1c] to-[#04060e] p-5 shadow-2xl relative overflow-hidden">
-          <div className="flex items-center justify-between gap-3 pb-3 border-b border-white/10 flex-wrap">
-            <h4 className="text-base font-bold text-white flex items-center gap-2">
-              <span>Pyth Network Oracle: {payload.symbol || "BTC / USD"}</span>
-              <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
-                Pythnet Cross-Chain
-              </span>
-            </h4>
+      {isPyth && (() => {
+        const cleanPrice = typeof payload.priceValue === 'number'
+          ? payload.priceValue
+          : parseFloat(String(payload.priceValue || '').replace(/[^0-9.-]+/g, '')) || 91420.5;
+        const cleanConf = typeof payload.confidenceInterval === 'number'
+          ? payload.confidenceInterval
+          : parseFloat(String(payload.confidenceInterval || '').replace(/[^0-9.-]+/g, '')) || 36.57;
+        const cleanEma = typeof payload.emaPrice === 'number'
+          ? payload.emaPrice
+          : parseFloat(String(payload.emaPrice || '').replace(/[^0-9.-]+/g, '')) || (cleanPrice * 1.0002);
 
-            <button
-              type="button"
-              onClick={() =>
-                handleCopyText(
-                  `Pyth ${payload.symbol} | Oracle Price: $${payload.priceValue} (±$${payload.confidenceInterval})`,
-                  "hero-pyth"
-                )
-              }
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-xs text-zinc-300 hover:text-white border border-white/10 transition-colors cursor-pointer"
-            >
-              {copiedKey === "hero-pyth" ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-purple-400" />}
-              <span>{copiedKey === "hero-pyth" ? "Copied" : "Copy Oracle Price"}</span>
-            </button>
-          </div>
+        return (
+          <div className="rounded-2xl border-2 border-purple-500/40 bg-gradient-to-br from-[#120a28] via-[#090b1c] to-[#04060e] p-5 shadow-2xl relative overflow-hidden">
+            <div className="flex items-center justify-between gap-3 pb-3 border-b border-white/10 flex-wrap">
+              <h4 className="text-base font-bold text-white flex items-center gap-2">
+                <span>Pyth Network Oracle: {payload.symbol || payload.assetSymbol || "BTC / USD"}</span>
+                <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                  {payload.sourceChain ? payload.sourceChain.replace(/\s*\(.*\)/, '') : "Pythnet Cross-Chain"}
+                </span>
+              </h4>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 font-mono">
-            <div className="rounded-xl border border-emerald-500/40 bg-emerald-950/25 p-3.5">
-              <span className="text-[10px] text-emerald-400 uppercase font-bold block mb-1">Oracle Price</span>
-              <span className="text-xl sm:text-2xl font-black text-emerald-300 block">${Number(payload.priceValue || 91420.5).toLocaleString()}</span>
-              <span className="text-[10px] text-zinc-400 mt-1 block">Live benchmark</span>
+              <button
+                type="button"
+                onClick={() =>
+                  handleCopyText(
+                    `Pyth ${payload.symbol || payload.assetSymbol} | Oracle Price: $${cleanPrice} (±$${cleanConf})`,
+                    "hero-pyth"
+                  )
+                }
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-xs text-zinc-300 hover:text-white border border-white/10 transition-colors cursor-pointer"
+              >
+                {copiedKey === "hero-pyth" ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-purple-400" />}
+                <span>{copiedKey === "hero-pyth" ? "Copied" : "Copy Oracle Price"}</span>
+              </button>
             </div>
-            <div className="rounded-xl border border-white/10 bg-black/40 p-3.5">
-              <span className="text-[10px] text-zinc-400 uppercase font-bold block mb-1">Confidence</span>
-              <span className="text-xl sm:text-2xl font-black text-cyan-300 block">&plusmn;${Number(payload.confidenceInterval || 36.57).toFixed(2)}</span>
-              <span className="text-[10px] text-zinc-400 mt-1 block">99.9% certainty</span>
-            </div>
-            <div className="rounded-xl border border-white/10 bg-black/40 p-3.5">
-              <span className="text-[10px] text-zinc-400 uppercase font-bold block mb-1">Publishers</span>
-              <span className="text-xl sm:text-2xl font-black text-purple-300 block">{payload.publisherCount || "38"}</span>
-              <span className="text-[10px] text-zinc-400 mt-1 block">Consensus nodes</span>
-            </div>
-            <div className="rounded-xl border border-white/10 bg-black/40 p-3.5">
-              <span className="text-[10px] text-zinc-400 uppercase font-bold block mb-1">EMA Price</span>
-              <span className="text-lg sm:text-xl font-bold text-white block">${Number(payload.emaPrice || 91438.8).toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
-              <span className="text-[10px] text-zinc-400 mt-1 block">Exponential moving avg</span>
-            </div>
-          </div>
 
-          <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between text-xs text-zinc-400 flex-wrap gap-2 font-mono">
-            <div className="flex items-center gap-2">
-              <span className="text-zinc-500">Pyth Contract:</span>
-              <span className="text-zinc-300 font-semibold">{payload.contractAddress || "0x2880aB155794e1629d1694503182394502891901"}</span>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 font-mono">
+              <div className="rounded-xl border border-emerald-500/40 bg-emerald-950/25 p-3.5">
+                <span className="text-[10px] text-emerald-400 uppercase font-bold block mb-1">Oracle Price</span>
+                <span className="text-xl sm:text-2xl font-black text-emerald-300 block">${cleanPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                <span className="text-[10px] text-zinc-400 mt-1 block">Live benchmark</span>
+              </div>
+              <div className="rounded-xl border border-white/10 bg-black/40 p-3.5">
+                <span className="text-[10px] text-zinc-400 uppercase font-bold block mb-1">Confidence</span>
+                <span className="text-xl sm:text-2xl font-black text-cyan-300 block">&plusmn;${cleanConf.toFixed(2)}</span>
+                <span className="text-[10px] text-zinc-400 mt-1 block">99.9% certainty</span>
+              </div>
+              <div className="rounded-xl border border-white/10 bg-black/40 p-3.5">
+                <span className="text-[10px] text-zinc-400 uppercase font-bold block mb-1">Publishers</span>
+                <span className="text-xl sm:text-2xl font-black text-purple-300 block">{payload.publisherCount || "38"}</span>
+                <span className="text-[10px] text-zinc-400 mt-1 block">Consensus nodes</span>
+              </div>
+              <div className="rounded-xl border border-white/10 bg-black/40 p-3.5">
+                <span className="text-[10px] text-zinc-400 uppercase font-bold block mb-1">EMA Price</span>
+                <span className="text-lg sm:text-xl font-bold text-white block">${cleanEma.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                <span className="text-[10px] text-zinc-400 mt-1 block">Exponential moving avg</span>
+              </div>
+            </div>
+
+            <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between text-xs text-zinc-400 flex-wrap gap-2 font-mono">
+              <div className="flex items-center gap-2">
+                <span className="text-zinc-500">Oracle Contract:</span>
+                <span className="text-zinc-300 font-semibold">{payload.contractAddress || "0x2880aB155794e1629d1694503182394502891901"}</span>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* ── 5. KURU CLOB HERO ────────────────────────────────────────────── */}
       {isKuru && (
@@ -519,22 +532,22 @@ export function DeliveredDataView({
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 font-mono">
             <div className="rounded-xl border border-emerald-500/40 bg-emerald-950/25 p-3.5">
               <span className="text-[10px] text-emerald-400 uppercase font-bold block mb-1">Best Bid</span>
-              <span className="text-2xl sm:text-3xl font-black text-emerald-300 block">${Number(payload.bestBid || 91420.5).toLocaleString()}</span>
+              <span className="text-2xl sm:text-3xl font-black text-emerald-300 block">${payload.bestBid || "1.4250"}</span>
               <span className="text-[10px] text-zinc-400 mt-1 block">Top limit buyer</span>
             </div>
             <div className="rounded-xl border border-rose-500/40 bg-rose-950/25 p-3.5">
               <span className="text-[10px] text-rose-400 uppercase font-bold block mb-1">Best Ask</span>
-              <span className="text-2xl sm:text-3xl font-black text-rose-300 block">${Number(payload.bestAsk || 91466.21).toLocaleString()}</span>
+              <span className="text-2xl sm:text-3xl font-black text-rose-300 block">${payload.bestAsk || "1.4258"}</span>
               <span className="text-[10px] text-zinc-400 mt-1 block">Lowest seller ask</span>
             </div>
             <div className="rounded-xl border border-white/10 bg-black/40 p-3.5">
               <span className="text-[10px] text-zinc-400 uppercase font-bold block mb-1">Spread</span>
-              <span className="text-2xl sm:text-3xl font-black text-cyan-300 block">{payload.spreadBps || "5.0"} bps</span>
-              <span className="text-[10px] text-zinc-400 mt-1 block">${payload.spreadUsdc || "45.71"} difference</span>
+              <span className="text-2xl sm:text-3xl font-black text-cyan-300 block">{payload.spreadBps || (payload.spreadUsdc && payload.bestBid ? ((Number(payload.spreadUsdc) / Number(payload.bestBid)) * 10000).toFixed(1) : "5.6")} bps</span>
+              <span className="text-[10px] text-zinc-400 mt-1 block">${payload.spreadUsdc || "0.0008"} difference</span>
             </div>
             <div className="rounded-xl border border-white/10 bg-black/40 p-3.5">
               <span className="text-[10px] text-zinc-400 uppercase font-bold block mb-1">Depth (&le;2%)</span>
-              <span className="text-xl sm:text-2xl font-bold text-white block truncate">${payload.depthWithin2PercentUsdc ? Number(payload.depthWithin2PercentUsdc).toLocaleString() : "2,489,000"}</span>
+              <span className="text-xl sm:text-2xl font-bold text-white block truncate">{payload.depthWithin2PctUsdc || (payload.depthWithin2PercentUsdc ? `$${Number(payload.depthWithin2PercentUsdc).toLocaleString()}` : "$1,842,900")}</span>
               <span className="text-[10px] text-zinc-400 mt-1 block">Liquidity depth</span>
             </div>
           </div>
@@ -621,7 +634,7 @@ export function DeliveredDataView({
               )}
             </div>
             <div className="text-[11px] text-zinc-400">
-              Balances: <strong className="text-cyan-300">DAI 78.4M · USDC 84.9M · USDT 81.2M</strong>
+              Balances: <strong className="text-cyan-300">{payload.daiBalance && payload.usdcBalance && payload.usdtBalance ? `DAI ${payload.daiBalance} · USDC ${payload.usdcBalance} · USDT ${payload.usdtBalance}` : "DAI 45.3M · USDC 37.0M · USDT 79.0M"}</strong>
             </div>
           </div>
         </div>
@@ -639,7 +652,7 @@ export function DeliveredDataView({
                 <h4 className="text-base font-bold text-white flex items-center gap-2">
                   <span>Compound V3 Comet: {payload.market || "USDC Market"}</span>
                   <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                    Arbitrum One
+                    {payload.sourceChain ? payload.sourceChain.replace(/\s*\(.*\)/, '') : "Ethereum Mainnet"}
                   </span>
                 </h4>
                 <p className="text-[11px] text-zinc-400">{payload.scope || "Borrow Rate & Base Utilization"}</p>
@@ -650,7 +663,7 @@ export function DeliveredDataView({
               type="button"
               onClick={() =>
                 handleCopyText(
-                  `Compound V3 Comet ${payload.market} | Supply APY: ${payload.baseSupplyRateApy} | Borrow APY: ${payload.baseBorrowRateApy} | Utilization: ${payload.utilizationPct}`,
+                  `Compound V3 Comet ${payload.market} | Supply APY: ${payload.baseSupplyRateApy} | Borrow APY: ${payload.baseBorrowRateApy} | Utilization: ${payload.utilizationPct || payload.utilizationRate}`,
                   "hero-compound"
                 )
               }
@@ -664,22 +677,22 @@ export function DeliveredDataView({
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 font-mono">
             <div className="rounded-xl border border-emerald-500/40 bg-emerald-950/25 p-3.5">
               <span className="text-[10px] text-emerald-400 uppercase font-bold block mb-1">Supply APY</span>
-              <span className="text-2xl sm:text-3xl font-black text-emerald-300 block">{payload.baseSupplyRateApy || "4.91%"}</span>
+              <span className="text-2xl sm:text-3xl font-black text-emerald-300 block">{payload.baseSupplyRateApy || "4.03%"}</span>
               <span className="text-[10px] text-zinc-400 mt-1 block">Base lender yield</span>
             </div>
             <div className="rounded-xl border border-amber-500/40 bg-amber-950/25 p-3.5">
               <span className="text-[10px] text-amber-400 uppercase font-bold block mb-1">Borrow APY</span>
-              <span className="text-2xl sm:text-3xl font-black text-amber-300 block">{payload.baseBorrowRateApy || "6.42%"}</span>
+              <span className="text-2xl sm:text-3xl font-black text-amber-300 block">{payload.baseBorrowRateApy || "4.89%"}</span>
               <span className="text-[10px] text-zinc-400 mt-1 block">Base borrow interest</span>
             </div>
             <div className="rounded-xl border border-white/10 bg-black/40 p-3.5">
               <span className="text-[10px] text-zinc-400 uppercase font-bold block mb-1">Utilization</span>
-              <span className="text-2xl sm:text-3xl font-black text-cyan-300 block">{payload.utilizationPct || "81.4%"}</span>
+              <span className="text-2xl sm:text-3xl font-black text-cyan-300 block">{payload.utilizationPct || payload.utilizationRate || "90.2%"}</span>
               <span className="text-[10px] text-zinc-400 mt-1 block">Capital efficiency</span>
             </div>
             <div className="rounded-xl border border-white/10 bg-black/40 p-3.5">
               <span className="text-[10px] text-zinc-400 uppercase font-bold block mb-1">Total Collateral</span>
-              <span className="text-xl sm:text-2xl font-bold text-white block truncate">{payload.totalCollateralUsd || "$184.2M"}</span>
+              <span className="text-xl sm:text-2xl font-bold text-white block truncate">{payload.totalCollateralUsd || payload.totalEarningUsdc || "$381.0M"}</span>
               <span className="text-[10px] text-zinc-400 mt-1 block">Absorption cushion</span>
             </div>
           </div>
@@ -687,7 +700,7 @@ export function DeliveredDataView({
           <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between text-xs text-zinc-400 flex-wrap gap-2 font-mono">
             <div className="flex items-center gap-2">
               <span className="text-zinc-500">Comet Contract:</span>
-              <span className="text-zinc-300 font-semibold">{payload.contractAddress || "0xA5EDBDD9646f8dFF606d7448e414884C7d905dCA"}</span>
+              <span className="text-zinc-300 font-semibold">{payload.contractAddress || "0xc3d688B66703497DAA19211EEdff47f25384cdc3"}</span>
               {sourceExplorer && (
                 <a href={sourceExplorer} target="_blank" rel="noreferrer" className="text-cyan-400 hover:text-cyan-300 inline-flex items-center gap-1">
                   <ExternalLink size={11} />
@@ -695,7 +708,7 @@ export function DeliveredDataView({
               )}
             </div>
             <div className="text-[11px] text-zinc-400">
-              Total Borrows: <strong className="text-white">{payload.totalBorrowUsd || "$149,890,200"}</strong>
+              Total Borrows: <strong className="text-white">{payload.totalBorrowUsd || payload.totalBorrowUsdc || "$343,859,765"}</strong>
             </div>
           </div>
         </div>
@@ -710,11 +723,16 @@ export function DeliveredDataView({
                 <TrendingUp className="w-4 h-4" />
               </span>
               <div>
-                <h4 className="text-base font-bold text-white flex items-center gap-2">
+                <h4 className="text-base font-bold text-white flex items-center gap-2 flex-wrap">
                   <span>Perpl Perpetual: {payload.market || "BTC-PERP"}</span>
                   <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30">
-                    Monad Native DEX
+                    {payload.sourceChain ? payload.sourceChain.replace(/\s*\(.*\)/, '') : "Monad Native DEX"}
                   </span>
+                  {payload.basisDivergenceBps && (
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                      Basis Divergence: {payload.basisDivergenceBps} ({payload.basisDivergenceUsd ? `$${payload.basisDivergenceUsd}` : ''})
+                    </span>
+                  )}
                 </h4>
                 <p className="text-[11px] text-zinc-400">{payload.dataSlice || "Mark Price & 1h Funding Velocity"}</p>
               </div>
@@ -724,7 +742,7 @@ export function DeliveredDataView({
               type="button"
               onClick={() =>
                 handleCopyText(
-                  `Perpl ${payload.market} | Mark: $${payload.markPrice} | 1h Funding: ${payload.fundingRate1h} | OI: ${payload.openInterestUsdc}`,
+                  `Perpl ${payload.market} | Mark: $${payload.markPrice} | 1h Funding: ${payload.fundingRate1h} | OI: ${payload.openInterestUsdc} | Basis: ${payload.basisDivergenceBps || '0 bps'}`,
                   "hero-perpl"
                 )
               }
@@ -738,22 +756,22 @@ export function DeliveredDataView({
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 font-mono">
             <div className="rounded-xl border border-emerald-500/40 bg-emerald-950/25 p-3.5">
               <span className="text-[10px] text-emerald-400 uppercase font-bold block mb-1">Mark Price</span>
-              <span className="text-2xl sm:text-3xl font-black text-emerald-300 block">${Number(payload.markPrice || 91450.0).toLocaleString()}</span>
+              <span className="text-2xl sm:text-3xl font-black text-emerald-300 block">${Number(payload.markPrice || 84900.0).toLocaleString()}</span>
               <span className="text-[10px] text-zinc-400 mt-1 block">Liquidation benchmark</span>
             </div>
             <div className="rounded-xl border border-purple-500/40 bg-purple-950/25 p-3.5">
               <span className="text-[10px] text-purple-400 uppercase font-bold block mb-1">1h Funding</span>
-              <span className="text-2xl sm:text-3xl font-black text-purple-300 block">{payload.fundingRate1h || "+0.0014%"}</span>
+              <span className="text-2xl sm:text-3xl font-black text-purple-300 block">{payload.fundingRate1h || "+0.0013%"}</span>
               <span className="text-[10px] text-zinc-400 mt-1 block">Hourly rate premium</span>
             </div>
             <div className="rounded-xl border border-white/10 bg-black/40 p-3.5">
               <span className="text-[10px] text-zinc-400 uppercase font-bold block mb-1">Annualized APR</span>
-              <span className="text-2xl sm:text-3xl font-black text-cyan-300 block">{payload.annualizedFundingApy || "+12.26%"}</span>
+              <span className="text-2xl sm:text-3xl font-black text-cyan-300 block">{payload.annualizedFundingApy || "+10.95%"}</span>
               <span className="text-[10px] text-zinc-400 mt-1 block">Annualized basis rate</span>
             </div>
             <div className="rounded-xl border border-white/10 bg-black/40 p-3.5">
               <span className="text-[10px] text-zinc-400 uppercase font-bold block mb-1">Open Interest</span>
-              <span className="text-xl sm:text-2xl font-bold text-white block truncate">{payload.openInterestUsdc || "$14,820,000"}</span>
+              <span className="text-xl sm:text-2xl font-bold text-white block truncate">{payload.openInterestUsdc || "$38,400,000"}</span>
               <span className="text-[10px] text-zinc-400 mt-1 block">Active positions</span>
             </div>
           </div>
@@ -768,8 +786,11 @@ export function DeliveredDataView({
                 </a>
               )}
             </div>
-            <div className="text-[11px] text-zinc-400">
-              Long/Short: <strong className="text-white">{payload.longShortRatio || "52.4% / 47.6%"}</strong>
+            <div className="text-[11px] text-zinc-400 flex items-center gap-3">
+              {payload.indexPrice && (
+                <span>Index Price: <strong className="text-white">${Number(payload.indexPrice).toLocaleString()}</strong></span>
+              )}
+              <span>Long/Short: <strong className="text-white">{payload.longShortRatio || "52.4% / 47.6%"}</strong></span>
             </div>
           </div>
         </div>
@@ -919,13 +940,13 @@ export function DeliveredDataView({
                 <span className="text-[10px] text-purple-400 uppercase font-bold">
                   {typeof payload.drawOdds === "number" ? "Draw (X)" : "Spread / Line"}
                 </span>
-                <span className="text-[10px] text-zinc-500">X / Line</span>
+                <span className="text-[10px] text-zinc-500">{typeof payload.drawOdds === "number" ? "X / Draw" : "Handicap"}</span>
               </div>
-              <span className="text-2xl sm:text-3xl font-black text-purple-300 block">
-                {payload.drawOdds ?? 3.40}
+              <span className={`font-black text-purple-300 block ${typeof payload.drawOdds === "number" ? "text-2xl sm:text-3xl" : "text-lg sm:text-xl truncate"}`}>
+                {typeof payload.drawOdds === "number" ? payload.drawOdds : (payload.spread?.line ? `Line ±${payload.spread.line}` : (payload.drawOdds || "3.40"))}
               </span>
               <span className="text-[10px] text-zinc-400 mt-1 block truncate">
-                {payload.spreadLine ? "2-Way Handicap" : "Match Draw"}
+                {payload.spreadLine ? payload.spreadLine.split('|')[0].trim() : (typeof payload.drawOdds === "number" ? "Match Draw" : "2-Way Handicap")}
               </span>
             </div>
 

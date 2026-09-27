@@ -26,6 +26,8 @@ export interface DeliveredPayload {
   settlementLayer: string;
 }
 
+export { fetchRealLivePayload } from "./realDataFetcher";
+
 export function generateDeliveredPayload(
   datasetName: string,
   ageSeconds: number,
@@ -285,7 +287,7 @@ export function generateDeliveredPayload(
 
     return {
       source: "Perpl Perpetual Exchange (PerplClearingHouse.sol)",
-      sourceChain: "Monad Mainnet (Chain ID: 143)",
+      sourceChain: "Monad Testnet (Chain ID: 10143)",
       contractAddress: "0x93F423e4210ab233B27cb92a7e7Ac33f7bDa6b1e62",
       sourceBlockNumber: baseBlock,
       sourceBlockTimestamp: sourceTimestamp,

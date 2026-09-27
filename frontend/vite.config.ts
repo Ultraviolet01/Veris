@@ -1,6 +1,7 @@
 import { defineConfig, loadEnv, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
+import { fetchRealLivePayload } from './src/lib/realDataFetcher'
 
 interface SellerOption {
   sellerId: string;
@@ -13,22 +14,38 @@ interface SellerOption {
 function parseHeuristically(query: string, availableSellers: SellerOption[]) {
   const q = query.toLowerCase();
 
-  // 1. Identify Seller
+  // 1. Identify Seller by weighted match scoring
+  const stopWords = new Set(['pool', 'pools', 'high', 'frequency', 'rates', 'data', 'feed', 'feeds', 'live', 'protocol', 'token', 'tokens', 'state', 'trades', 'floor', 'debt']);
   let matchedSeller: SellerOption | undefined;
+  let highestScore = 0;
+
   for (const s of availableSellers) {
     const sName = s.name.toLowerCase();
-    const words = sName.split(/[\s/&-]+/);
+    let score = 0;
     if (q.includes(sName)) {
-      matchedSeller = s;
-      break;
+      score += 100;
     }
+    const words = sName.split(/[\s/&-]+/);
     for (const w of words) {
-      if (w.length > 2 && q.includes(w)) {
-        matchedSeller = s;
-        break;
+      if (w.length > 2 && !stopWords.has(w) && q.includes(w)) {
+        score += w.length;
       }
     }
-    if (matchedSeller) break;
+    // Domain concept matches
+    if (sName.includes('curve') && (q.includes('virtual price') || q.includes('stableswap') || q.includes('peg') || q.includes('imbalance') || q.includes('imbalances') || q.includes('3pool') || q.includes('multi-asset'))) score += 35;
+    if (sName.includes('aave') && (q.includes('lending') || q.includes('borrow rate') || q.includes('supply apy') || q.includes('reserve liquidity'))) score += 35;
+    if (sName.includes('uniswap') && (q.includes('twap') || q.includes('tick') || q.includes('ticks') || q.includes('spot tick'))) score += 35;
+    if (sName.includes('compound') && (q.includes('comet') || q.includes('collateral') || q.includes('debt utilization') || q.includes('utilization'))) score += 35;
+    if (sName.includes('overtime') && (q.includes('sports') || q.includes('sport') || q.includes('moneyline') || q.includes('odds') || q.includes('spread') || q.includes('arbitrage') || q.includes('sportsbook'))) score += 35;
+    if (sName.includes('perpl') && (q.includes('derivative') || q.includes('futures') || q.includes('funding velocity') || q.includes('mark price') || q.includes('basis trade'))) score += 35;
+    if (sName.includes('kuru') && (q.includes('clob') || q.includes('order book') || q.includes('orderbook') || q.includes('depth'))) score += 35;
+    if (sName.includes('monad') && (q.includes('mempool') || q.includes('congestion') || q.includes('sequencer') || q.includes('telemetry'))) score += 35;
+    if (sName.includes('seaport') && (q.includes('nft') || q.includes('opensea') || q.includes('floor') || q.includes('collection'))) score += 35;
+
+    if (score > highestScore) {
+      highestScore = score;
+      matchedSeller = s;
+    }
   }
 
   if (!matchedSeller) {
@@ -60,10 +77,11 @@ function parseHeuristically(query: string, availableSellers: SellerOption[]) {
 
   // 3. Identify Max Age / Freshness Window
   let maxAgeSeconds: number | undefined;
-  const ageMatch = q.match(/(?:under|max|less than|within|freshness)?\s*(\d+)\s*(?:seconds?|secs?|s)\b/) ||
-                   q.match(/(\d+)\s*(?:seconds?|secs?|s)\s*old/);
+  const ageMatch = q.match(/(?:under|max|less than|within|freshness(?:\s*(?:under|below|floor|of|within|<=?))?)\s*(\d+(?:\.\d+)?)\s*(?:seconds?|secs?|s)\b/i) ||
+                   q.match(/(\d+(?:\.\d+)?)\s*(?:seconds?|secs?|s)\s*old/i) ||
+                   q.match(/(?:freshness|age)\s*(?:floor|of|under|below|within|<=?)?\s*(\d+(?:\.\d+)?)\s*s?\b/i);
   if (ageMatch) {
-    maxAgeSeconds = parseInt(ageMatch[1], 10);
+    maxAgeSeconds = parseFloat(ageMatch[1]);
   }
 
   if (maxAgeSeconds === undefined || isNaN(maxAgeSeconds) || maxAgeSeconds <= 0) {
@@ -260,21 +278,29 @@ Do NOT include markdown backticks or any explanatory text outside the JSON.`;
               await publicClient.waitForTransactionReceipt({ hash: txFund });
               console.log(`[API /api/purchase] Job #${jobId.toString()} funded: ${txFund}`);
 
-              // 4. Generate Authenticated Payload & Operator Attestation
-              const currentBlock = await publicClient.getBlock({ blockTag: 'latest' });
-              const currentTs = currentBlock.timestamp;
-              const ageSeconds = isFresh ? (customAgeSeconds ?? 1.8) : (customAgeSeconds ?? (freshnessSlaSeconds + 4.5));
-              const sourceBlockTimestamp = currentTs - BigInt(Math.round(ageSeconds));
-              const sourceBlockNumber = currentBlock.number;
+              // 4. Fetch Real Live Data from On-Chain Contracts & Generate Authenticated Attestation
+              const baselineArrivalAge = 1.8;
+              const requestedSla = Number(freshnessSlaSeconds);
 
-              const payloadStr = JSON.stringify({
-                dataset: datasetName,
-                param1,
-                param2,
-                sourceBlock: Number(sourceBlockNumber),
-                sourceBlockTimestamp: Number(sourceBlockTimestamp),
-                isFresh,
-              });
+              // Real data takes at least ~1.8s to arrive through RPC sampling & network hops.
+              // If the buyer's SLA demands < 1.8s (e.g. 1s or 1.5s), the data has already breached
+              // the time threshold upon arrival!
+              const isTimeBreached = baselineArrivalAge > requestedSla;
+              const actuallyFresh = isFresh && !isTimeBreached;
+
+              // For on-chain SlaEvaluator timestamp: if breached, age must exceed on-chain seller freshness window (10s)
+              const effectiveOnChainAge = actuallyFresh
+                ? (customAgeSeconds ?? baselineArrivalAge)
+                : (customAgeSeconds ?? Math.max(baselineArrivalAge, requestedSla + 4.5, 14.0));
+
+              const reportedDataAge = isTimeBreached ? baselineArrivalAge : effectiveOnChainAge;
+
+              console.log(`[API /api/purchase] Fetching live data for ${datasetName} (SLA: ${requestedSla}s, Arrival: ${reportedDataAge}s, Fresh: ${actuallyFresh})...`);
+              const livePayload = await fetchRealLivePayload(datasetName, effectiveOnChainAge, requestedSla, param1, param2);
+              const sourceBlockNumber = BigInt(livePayload.sourceBlockNumber);
+              const sourceBlockTimestamp = BigInt(livePayload.sourceBlockTimestamp);
+
+              const payloadStr = JSON.stringify(livePayload);
               const dataHash = keccak256(stringToBytes(payloadStr));
 
               const msgHash = keccak256(
@@ -358,9 +384,9 @@ Do NOT include markdown backticks or any explanatory text outside the JSON.`;
               await publicClient.waitForTransactionReceipt({ hash: txResolve });
               console.log(`[API /api/purchase] Resolved on-chain: ${txResolve}`);
 
-              const finalStatus = isFresh ? 'SLA Met' : 'Refunded';
-              const verdict = isFresh ? 'APPROVED' : 'REFUNDED';
-              const outcome = isFresh ? 'settled' : 'refunded';
+              const finalStatus = actuallyFresh ? 'SLA Met' : 'Refunded';
+              const verdict = actuallyFresh ? 'APPROVED' : 'REFUNDED';
+              const outcome = actuallyFresh ? 'settled' : 'refunded';
 
               res.setHeader('Content-Type', 'application/json');
               res.end(
@@ -377,13 +403,14 @@ Do NOT include markdown backticks or any explanatory text outside the JSON.`;
                   status: finalStatus,
                   verdict,
                   outcome,
-                  dataAgeSeconds: ageSeconds,
-                  sellerAmountUsdc: isFresh ? Number((budgetUsdc * 0.98).toFixed(4)) : 0,
-                  treasuryAmountUsdc: isFresh ? Number((budgetUsdc * 0.02).toFixed(4)) : 0,
+                  dataAgeSeconds: reportedDataAge,
+                  sellerAmountUsdc: actuallyFresh ? Number((budgetUsdc * 0.98).toFixed(4)) : 0,
+                  treasuryAmountUsdc: actuallyFresh ? Number((budgetUsdc * 0.02).toFixed(4)) : 0,
                   resolvedAt: new Date().toLocaleTimeString(),
                   operatorAddress: operatorAccount.address,
                   blockHeight: Number(sourceBlockNumber),
                   signature,
+                  realPayload: livePayload,
                 })
               );
             } catch (err: unknown) {
@@ -449,20 +476,14 @@ Do NOT include markdown backticks or any explanatory text outside the JSON.`;
               const currentBlock = await publicClient.getBlock({ blockTag: 'latest' });
               const currentTs = currentBlock.timestamp;
 
-              // 2. Set sourceBlockTimestamp based on freshness scenario
-              // Fresh: age ~ 2 seconds <= 10s SLA -> SlaEvaluator will COMPLETE (seller paid)
-              // Stale: age ~ 18 seconds > 10s SLA -> SlaEvaluator will REJECT (buyer 100% refunded)
+              // 2. Fetch Real Live Data from On-Chain Contracts & Generate Authenticated Attestation
               const ageSeconds = isFresh ? (customAgeSeconds ?? 2) : (customAgeSeconds ?? 18);
-              const sourceBlockTimestamp = currentTs - BigInt(ageSeconds);
-              const sourceBlockNumber = currentBlock.number;
+              console.log(`[API operator-resolve] Fetching live on-chain data for ${datasetName}...`);
+              const livePayload = await fetchRealLivePayload(datasetName || 'Kuru CLOB', ageSeconds, 10);
+              const sourceBlockNumber = BigInt(livePayload.sourceBlockNumber);
+              const sourceBlockTimestamp = BigInt(livePayload.sourceBlockTimestamp);
 
-              // 3. Compute dataHash and ETH-signed attestation hash
-              const payloadStr = JSON.stringify({
-                dataset: datasetName,
-                sourceBlock: Number(sourceBlockNumber),
-                sourceBlockTimestamp: Number(sourceBlockTimestamp),
-                isFresh,
-              });
+              const payloadStr = JSON.stringify(livePayload);
               const dataHash = keccak256(stringToBytes(payloadStr));
 
               const msgHash = keccak256(
@@ -560,7 +581,8 @@ Do NOT include markdown backticks or any explanatory text outside the JSON.`;
                   gasUsed: rc.gasUsed.toString(),
                   resolvedAt: new Date().toLocaleTimeString(),
                   status: isFresh ? 'COMPLETED (Seller Paid 98% · VerisTreasury 2%)' : 'REJECTED (Buyer 100% Refunded)',
-                  payload: JSON.parse(payloadStr),
+                  payload: livePayload,
+                  realPayload: livePayload,
                 })
               );
             } catch (err: unknown) {

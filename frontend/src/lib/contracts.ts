@@ -471,7 +471,7 @@ export const FEATURED_DATASETS: MarketplaceDataset[] = [
     priceUsdc: 0.45,
     reliabilityBps: 9970, // 99.7%
     totalJobs: 5120,
-    sourceChain: "Monad Mainnet (Native Perpl DEX)",
+    sourceChain: "Monad Testnet (Native Perpl DEX)",
     payoutAddress: "0x89C323e4210ab233B27cb92a7e7Ac33f7bDa6b1e67",
   },
   {

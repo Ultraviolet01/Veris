@@ -55,9 +55,9 @@ export const DynamicSetupGuide: React.FC = () => {
             <div className="bg-black/30 p-4 rounded-xl border border-white/5 flex items-start gap-3">
               <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
               <div>
-                <strong className="text-white block mb-0.5">Sign-in Methods → Google & Email OTP / Passkeys</strong>
+                <strong className="text-white block mb-0.5">Sign-in Methods → Dynamic Google Login Only</strong>
                 <span>
-                  Enable social and/or passkey providers. Users log in frictionlessly without browser extensions.
+                  Configured strictly for 1-click Google authentication. External browser wallets (MetaMask, Phantom, etc.) are excluded so users log in seamlessly via Dynamic embedded WaaS.
                 </span>
               </div>
             </div>

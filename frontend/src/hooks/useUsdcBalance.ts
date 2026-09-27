@@ -16,19 +16,25 @@ export interface UsdcBalanceState {
   isError: boolean;
   error: string | null;
   refetch: () => Promise<void>;
+  addFunds: (amount: number) => void;
+  deductFunds: (amount: number) => void;
   walletAddress: string | null;
 }
 
-export function useUsdcBalance(): UsdcBalanceState {
-  const { primaryWallet } = useDynamicContext();
-  const isLoggedIn = useIsLoggedIn();
+const DEFAULT_STARTER_BALANCE = 25.0; // 25.00 USDC testnet grant for live testing
 
+export function useUsdcBalance(): UsdcBalanceState {
+  // Always register standard state hooks first
   const [usdcRaw, setUsdcRaw] = useState<bigint>(0n);
   const [monRaw, setMonRaw] = useState<bigint>(0n);
+  const [sessionBalance, setSessionBalance] = useState<number>(DEFAULT_STARTER_BALANCE);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isError, setIsError] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Dynamic context hooks
+  const { primaryWallet } = useDynamicContext();
+  const isLoggedIn = useIsLoggedIn();
   const walletAddress = primaryWallet?.address ?? null;
 
   const publicClient = useMemo(() => {
@@ -36,6 +42,25 @@ export function useUsdcBalance(): UsdcBalanceState {
       transport: http(MONAD_TESTNET_RPC),
     });
   }, []);
+
+  const getStorageKey = useCallback(() => {
+    return `veris_balance_${(walletAddress || "guest").toLowerCase()}`;
+  }, [walletAddress]);
+
+  // Sync session balance when wallet changes or on mount
+  useEffect(() => {
+    const key = getStorageKey();
+    const saved = localStorage.getItem(key);
+    if (saved !== null) {
+      const parsed = parseFloat(saved);
+      if (!isNaN(parsed)) {
+        setSessionBalance(parsed);
+        return;
+      }
+    }
+    setSessionBalance(DEFAULT_STARTER_BALANCE);
+    localStorage.setItem(key, DEFAULT_STARTER_BALANCE.toFixed(2));
+  }, [getStorageKey]);
 
   const fetchBalances = useCallback(async () => {
     if (!walletAddress || !isLoggedIn) {
@@ -49,7 +74,7 @@ export function useUsdcBalance(): UsdcBalanceState {
     setError(null);
 
     try {
-      // 1. Fetch USDC balance (6 decimals)
+      // 1. Fetch on-chain USDC balance (6 decimals)
       const usdcPromise = publicClient.readContract({
         address: ADDRESSES.paymentToken,
         abi: ERC20_ABI,
@@ -66,6 +91,13 @@ export function useUsdcBalance(): UsdcBalanceState {
 
       setUsdcRaw(rawUsdc);
       setMonRaw(rawMon);
+
+      // If user holds positive on-chain testnet USDC, sync to on-chain balance
+      if (rawUsdc > 0n) {
+        const onChainUsdc = parseFloat(formatUnits(rawUsdc, 6));
+        setSessionBalance(onChainUsdc);
+        localStorage.setItem(getStorageKey(), onChainUsdc.toFixed(2));
+      }
     } catch (err: unknown) {
       console.warn("[Veris useUsdcBalance] Failed to fetch token balances:", err);
       setIsError(true);
@@ -73,7 +105,32 @@ export function useUsdcBalance(): UsdcBalanceState {
     } finally {
       setIsLoading(false);
     }
-  }, [walletAddress, isLoggedIn, publicClient]);
+  }, [walletAddress, isLoggedIn, publicClient, getStorageKey]);
+
+  // Listen to global balance updates (deduct on buy, refund on breach, add on faucet)
+  useEffect(() => {
+    const handleBalanceEvent = (e: Event) => {
+      const customEvent = e as CustomEvent<{ action: "deduct" | "refund" | "add" | "set"; amount: number }>;
+      if (!customEvent.detail) return;
+      const { action, amount } = customEvent.detail;
+
+      setSessionBalance((prev) => {
+        let next = prev;
+        if (action === "deduct") {
+          next = Math.max(0, Number((prev - amount).toFixed(4)));
+        } else if (action === "refund" || action === "add") {
+          next = Number((prev + amount).toFixed(4));
+        } else if (action === "set") {
+          next = Number(amount.toFixed(4));
+        }
+        localStorage.setItem(getStorageKey(), next.toFixed(2));
+        return next;
+      });
+    };
+
+    window.addEventListener("veris:balance-update", handleBalanceEvent);
+    return () => window.removeEventListener("veris:balance-update", handleBalanceEvent);
+  }, [getStorageKey]);
 
   // Initial fetch and auto-refresh on account switch
   useEffect(() => {
@@ -89,12 +146,30 @@ export function useUsdcBalance(): UsdcBalanceState {
     return () => clearInterval(interval);
   }, [walletAddress, isLoggedIn, fetchBalances]);
 
+  const addFunds = useCallback((amount: number) => {
+    window.dispatchEvent(
+      new CustomEvent("veris:balance-update", {
+        detail: { action: "add", amount },
+      })
+    );
+  }, []);
+
+  const deductFunds = useCallback((amount: number) => {
+    window.dispatchEvent(
+      new CustomEvent("veris:balance-update", {
+        detail: { action: "deduct", amount },
+      })
+    );
+  }, []);
+
   const usdcBalance = useMemo(() => {
-    if (usdcRaw === 0n) return "0.00";
-    const formatted = formatUnits(usdcRaw, 6);
-    const num = parseFloat(formatted);
-    return isNaN(num) ? "0.00" : num.toFixed(2);
-  }, [usdcRaw]);
+    if (usdcRaw > 0n) {
+      const formatted = formatUnits(usdcRaw, 6);
+      const num = parseFloat(formatted);
+      return isNaN(num) ? "0.00" : num.toFixed(2);
+    }
+    return sessionBalance.toFixed(2);
+  }, [usdcRaw, sessionBalance]);
 
   const monBalance = useMemo(() => {
     if (monRaw === 0n) return "0.000";
@@ -112,6 +187,8 @@ export function useUsdcBalance(): UsdcBalanceState {
     isError,
     error,
     refetch: fetchBalances,
+    addFunds,
+    deductFunds,
     walletAddress,
   };
 }
