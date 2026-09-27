@@ -22,6 +22,7 @@ import { DocsSpecs } from "./components/DocsSpecs";
 import { BuyerModal } from "./components/BuyerModal";
 import { SellerStudio } from "./components/SellerStudio";
 import { AgentChatbot } from "./components/AgentChatbot";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { type MarketplaceDataset } from "./lib/contracts";
 
 export function VerisApp() {
@@ -187,7 +188,9 @@ export function VerisApp() {
       )}
 
       {/* Natural-Language Console (Claude Chatbot) — Floating Bottom Right */}
-      <AgentChatbot />
+      <ErrorBoundary>
+        <AgentChatbot />
+      </ErrorBoundary>
     </div>
   );
 }

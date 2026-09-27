@@ -24,6 +24,11 @@ import {
 } from "lucide-react";
 import { OpenBookStepper, OpenBookTxCard } from "./OpenBookReceipt";
 
+function truncateHash(hash?: string, start = 8, end = 6): string {
+  if (!hash || hash.length <= start + end) return hash || "";
+  return `${hash.slice(0, start)}...${hash.slice(-end)}`;
+}
+
 /** Convert dataset name to standard slug */
 function datasetToSlug(name: string): string {
   const lower = name.toLowerCase();
@@ -125,6 +130,7 @@ export const AgentChatbot: React.FC = () => {
   ]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const isLoggedIn = useIsLoggedIn();
@@ -135,7 +141,9 @@ export const AgentChatbot: React.FC = () => {
   const [activeExecutingMsgId, setActiveExecutingMsgId] = useState<string | null>(null);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+    }
   };
 
   useEffect(() => {
@@ -559,10 +567,15 @@ export const AgentChatbot: React.FC = () => {
   return (
     <>
       {/* ── 1. Floating Console Launcher Button (Bottom Right) ──────────────── */}
-      <div className="fixed bottom-6 right-6 z-50">
+      <div className="fixed bottom-6 right-6 z-[70]">
         <button
           id="btn-open-claude-console"
-          onClick={() => setIsOpen(!isOpen)}
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setIsOpen((prev) => !prev);
+          }}
           className="relative group flex items-center gap-2.5 rounded-full bg-gradient-to-r from-purple-600 via-indigo-600 to-cyan-500 p-[1.5px] shadow-2xl shadow-purple-600/40 hover:shadow-cyan-500/50 transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer"
           title="Open Veris Autonomous Protocol Console"
         >
@@ -581,7 +594,7 @@ export const AgentChatbot: React.FC = () => {
       {/* ── 2. OpenBook Console Tape Dialog ─────────────────────────────────── */}
       {isOpen && (
         <div
-          className={`fixed z-50 rounded-3xl border border-white/15 bg-[#070913]/95 shadow-2xl shadow-purple-950/60 backdrop-blur-2xl flex flex-col overflow-hidden animate-in fade-in duration-200 transition-all font-mono ${
+          className={`fixed z-[70] rounded-3xl border border-white/15 bg-[#070913]/95 shadow-2xl shadow-purple-950/60 backdrop-blur-2xl flex flex-col overflow-hidden animate-in fade-in duration-200 transition-all font-mono ${
             isEnlarged
               ? "bottom-6 right-4 sm:right-6 md:right-8 w-[860px] max-w-[calc(100vw-2rem)] h-[820px] max-h-[90vh]"
               : "bottom-20 right-6 w-[470px] max-w-[calc(100vw-2rem)] h-[620px] max-h-[84vh]"
@@ -659,7 +672,7 @@ export const AgentChatbot: React.FC = () => {
 
             <div className="flex items-center gap-2">
               <span className="text-cyan-300 font-semibold">{usdcBalance} USDC</span>
-              {primaryWallet && (
+              {primaryWallet?.address && (
                 <span className="text-[10px] text-neutral-500">
                   ({truncateHash(primaryWallet.address, 4, 3)})
                 </span>
@@ -668,7 +681,10 @@ export const AgentChatbot: React.FC = () => {
           </div>
 
           {/* Tape Stream (Console Entries) */}
-          <div className="flex-1 p-4 overflow-y-auto space-y-4 scrollbar-thin bg-[#060810]/70">
+          <div
+            ref={messagesContainerRef}
+            className="flex-1 p-4 overflow-y-auto space-y-4 scrollbar-thin bg-[#060810]/70"
+          >
             {messages.map((m) => (
               <div key={m.id} className="space-y-2">
                 {/* 1. Echoed Command Line (if user) */}
