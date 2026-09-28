@@ -12,7 +12,8 @@ import { purchase } from "../src/tools/purchase.js";
 async function runTests() {
   console.log("=== Veris MCP Server Tool Verification ===\n");
 
-  const KURU_SELLER_ID = "0xa2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a102";
+  // veris.eth — the registered sellerId for all datasets in config/veris.json
+  const VERIS_SELLER_ID = "0x76657269732e6574680000000000000000000000000000000000000000000000";
 
   // Test 1: list_datasets
   console.log("1. Testing list_datasets()...");
@@ -25,13 +26,13 @@ async function runTests() {
 
   // Test 2: get_quote
   console.log("2. Testing get_quote() for Kuru...");
-  const quoteResult = await getQuote(KURU_SELLER_ID);
+  const quoteResult = await getQuote(VERIS_SELLER_ID);
   console.log(`   Quote: $${quoteResult.price} USDC, SLA: ${quoteResult.freshnessWindowSeconds}s, Reliability: ${quoteResult.reliabilityPercent}`);
   console.log("   ✅ get_quote PASSED\n");
 
   // Test 3: check_reputation
   console.log("3. Testing check_reputation() for Kuru...");
-  const repResult = await checkReputation(KURU_SELLER_ID);
+  const repResult = await checkReputation(VERIS_SELLER_ID);
   console.log(`   Reputation: ${repResult.slaMetCount} met, ${repResult.slaMissedCount} missed (${repResult.reliabilityPercent})`);
   console.log("   ✅ check_reputation PASSED\n");
 
@@ -50,7 +51,7 @@ async function runTests() {
   console.log("5. Testing purchase() pre-flight protection (price > maxPrice)...");
   try {
     await purchase({
-      sellerId: KURU_SELLER_ID,
+      sellerId: VERIS_SELLER_ID,
       maxPrice: 0.01, // Intentionally lower than $0.35 quote price
       maxAgeSeconds: 10,
     });

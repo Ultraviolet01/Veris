@@ -54,7 +54,7 @@ function parseHeuristically(query: string, availableSellers: SellerOption[]) {
     maxPrice = parseFloat(centsMatch[1]) / 100;
   } else {
     const priceMatch = q.match(/(?:max|under|budget|cap|at most|\$)?\s*\$?(\d+(?:\.\d+)?)\s*(?:usdc|dollars|usd|\$)/) ||
-                       q.match(/(?:max|under|budget|cap|at most)\s+\$?(\d+(?:\.\d+)?)/);
+      q.match(/(?:max|under|budget|cap|at most)\s+\$?(\d+(?:\.\d+)?)/);
     if (priceMatch) {
       maxPrice = parseFloat(priceMatch[1]);
     }
@@ -68,8 +68,8 @@ function parseHeuristically(query: string, availableSellers: SellerOption[]) {
 
   let maxAgeSeconds: number | undefined;
   const ageMatch = q.match(/(?:under|max|less than|within|freshness(?:\s*(?:under|below|floor|of|within|<=?))?)\s*(\d+(?:\.\d+)?)\s*(?:seconds?|secs?|s)\b/i) ||
-                   q.match(/(\d+(?:\.\d+)?)\s*(?:seconds?|secs?|s)\s*old/i) ||
-                   q.match(/(?:freshness|age)\s*(?:floor|of|under|below|within|<=?)?\s*(\d+(?:\.\d+)?)\s*s?\b/i);
+    q.match(/(\d+(?:\.\d+)?)\s*(?:seconds?|secs?|s)\s*old/i) ||
+    q.match(/(?:freshness|age)\s*(?:floor|of|under|below|within|<=?)?\s*(\d+(?:\.\d+)?)\s*s?\b/i);
   if (ageMatch) {
     maxAgeSeconds = parseFloat(ageMatch[1]);
   }

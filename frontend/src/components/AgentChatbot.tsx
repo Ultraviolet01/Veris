@@ -910,9 +910,6 @@ export const AgentChatbot: React.FC = () => {
                           >
                             <Play size={12} className="fill-current" />
                             <span>Run ↵</span>
-                            <span className="text-[10px] font-normal opacity-80 font-sans">
-                              nothing auto-executes
-                            </span>
                           </button>
 
                           <label className="flex items-center gap-1.5 text-xs text-amber-300 cursor-pointer select-none">

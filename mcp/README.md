@@ -33,13 +33,18 @@ npm run test:tools
 
 ## Client Integration
 
-### Claude Desktop (`claude_desktop_config.json`)
+> **Build first:** Run `npm install && npm run build` inside the `mcp/` directory. This compiles TypeScript to `dist/server.js` before connecting any client.
+
+### Claude Desktop
+
+Config file: `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows)
+
 ```json
 {
   "mcpServers": {
     "veris": {
       "command": "node",
-      "args": ["<PATH_TO_VERIS>/mcp/dist/server.js"],
+      "args": ["<ABSOLUTE_PATH_TO_VERIS>/mcp/dist/server.js"],
       "env": {
         "MONAD_TESTNET_RPC_URL": "https://testnet-rpc.monad.xyz",
         "BUYER_PRIVATE_KEY": "0xYourAgentWalletPrivateKey..."
@@ -65,4 +70,7 @@ npm run test:tools
 }
 ```
 
-For the complete developer guide with LangChain, CrewAI, AutoGen, and TypeScript SDK integrations, see [`docs/mcp-integration-guide.md`](../docs/mcp-integration-guide.md).
+### Antigravity / other stdio clients
+Any MCP client that supports `stdio` transport works — point `command` at `node` and `args` at the compiled `dist/server.js` with the same `env` block above.
+
+> **Read-only tools** (`list_datasets`, `get_quote`, `verify_delivery`, `check_reputation`) work without `BUYER_PRIVATE_KEY`. Only `purchase` requires a funded wallet.

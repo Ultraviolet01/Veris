@@ -84,7 +84,7 @@ export async function verifyDelivery(jobId: number): Promise<VerifyDeliveryResul
 
   return {
     jobId,
-    sellerId: sellerId || "0x76657269732e6574680000000000000000000000000000000000000000000000",
+    sellerId: sellerId ?? undefined, // undefined if JobResolved event not found in recent blocks
     status: statusName,
     statusCode,
     verdict,

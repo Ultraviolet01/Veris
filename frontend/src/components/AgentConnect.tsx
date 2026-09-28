@@ -10,12 +10,11 @@ export function AgentConnect() {
     {
       mcpServers: {
         veris: {
-          command: "npx",
-          args: ["-y", "@veris-protocol/mcp-server"],
+          command: "node",
+          args: ["<PATH_TO_VERIS>/mcp/dist/server.js"],
           env: {
-            MONAD_RPC: "https://testnet-rpc.monad.xyz",
-            CHAIN_ID: "10143",
-            CLIENT_SPENDING_CAP_USDC: "50.0",
+            MONAD_TESTNET_RPC_URL: "https://testnet-rpc.monad.xyz",
+            BUYER_PRIVATE_KEY: "0xYourAgentWalletPrivateKey...",
           },
         },
       },
@@ -132,7 +131,7 @@ curl -X POST https://api.veris.market/v1/query/monad-dex-prices \\
             </div>
 
             <p className="text-xs text-neutral-400 mb-4 leading-relaxed">
-              Add Veris as an MCP server to Claude Desktop, Cursor, or AutoGPT to let your agent discover and query verified Monad datasets automatically.
+              Add to your MCP config (Claude Desktop, Cursor, or Antigravity) to let your agent discover and query verified Monad datasets automatically. Build first with <code className="font-mono text-purple-300">npm run build</code> inside the <code className="font-mono text-purple-300">mcp/</code> directory, then replace <code className="font-mono text-purple-300">&lt;PATH_TO_VERIS&gt;</code> with your absolute path.
             </p>
 
             <pre className="rounded-xl bg-[#030407] border border-white/5 p-4 font-mono text-xs leading-relaxed text-purple-200 overflow-x-auto">
@@ -142,11 +141,11 @@ curl -X POST https://api.veris.market/v1/query/monad-dex-prices \\
             <div className="mt-4 pt-3 border-t border-white/5 space-y-2 text-xs text-neutral-400">
               <div className="flex items-center gap-2">
                 <ShieldCheck size={14} className="text-emerald-400 shrink-0" />
-                <span className="text-[11px]">Hard Spending Cap: $50.00 USDC per call limit</span>
+                <span className="text-[11px]">Hard Spending Cap: $50.00 USDC enforced server-side</span>
               </div>
               <div className="flex items-center gap-2">
                 <Globe size={14} className="text-purple-400 shrink-0" />
-                <span className="text-[11px]">Server Endpoint: https://api.veris.market/mcp</span>
+                <span className="text-[11px]">Transport: stdio · compatible with Claude Desktop, Cursor, Antigravity</span>
               </div>
             </div>
           </div>
