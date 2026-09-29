@@ -5,9 +5,11 @@ import type { AppView } from "./site-nav";
 interface SiteFooterProps {
   onSelectView?: (view: AppView) => void;
   onOpenSellerStudio?: () => void;
+  onOpenPrivacy?: () => void;
+  onOpenTerms?: () => void;
 }
 
-export function SiteFooter({ onSelectView, onOpenSellerStudio }: SiteFooterProps) {
+export function SiteFooter({ onSelectView, onOpenSellerStudio, onOpenPrivacy, onOpenTerms }: SiteFooterProps) {
   const handleNav = (view: AppView) => {
     if (onSelectView) {
       onSelectView(view);
@@ -135,15 +137,58 @@ export function SiteFooter({ onSelectView, onOpenSellerStudio }: SiteFooterProps
                 <ArrowUpRight size={11} />
               </a>
             </div>
+
+            {/* Column 4: Legal */}
+            <div className="flex flex-col gap-3">
+              <span className="font-semibold text-white uppercase tracking-wider text-[11px]">Legal</span>
+              <button
+                type="button"
+                onClick={onOpenPrivacy}
+                className="text-left text-neutral-400 hover:text-white transition-colors cursor-pointer"
+              >
+                Privacy Policy
+              </button>
+              <button
+                type="button"
+                onClick={onOpenTerms}
+                className="text-left text-neutral-400 hover:text-white transition-colors cursor-pointer"
+              >
+                Terms of Service
+              </button>
+              <a
+                href="mailto:hello@veris.xyz"
+                className="text-neutral-400 hover:text-white transition-colors"
+              >
+                Contact Us
+              </a>
+            </div>
           </div>
         </div>
 
         {/* Bottom bar */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-t border-white/5 pt-8 text-[11px] text-neutral-500">
-          <p>© 2026 Veris Protocol · Monad Metropolis Track 4 (Trust, Identity & AI Infrastructure)</p>
-          <div className="flex items-center gap-2 font-mono">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span>Monad Testnet (Chain ID 10143) · 10,000 TPS</span>
+          <div className="flex flex-col gap-1">
+            <p>© 2026 Veris Protocol · Monad Metropolis Track 4 (Trust, Identity &amp; AI Infrastructure)</p>
+            <p>
+              <a href="mailto:hello@veris.xyz" className="hover:text-neutral-300 transition-colors underline underline-offset-2">
+                hello@veris.xyz
+              </a>
+              {" · "}
+              <button type="button" onClick={onOpenPrivacy} className="hover:text-neutral-300 transition-colors underline underline-offset-2 cursor-pointer">
+                Privacy
+              </button>
+              {" · "}
+              <button type="button" onClick={onOpenTerms} className="hover:text-neutral-300 transition-colors underline underline-offset-2 cursor-pointer">
+                Terms
+              </button>
+            </p>
+          </div>
+          <div className="flex flex-col items-end gap-1 font-mono">
+            <div className="flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" aria-hidden="true" />
+              <span>Monad Testnet (Chain ID 10143) · Up to 10,000 TPS*</span>
+            </div>
+            <span className="text-neutral-700 text-[10px]">* Testnet performance. Mainnet figures may vary.</span>
           </div>
         </div>
       </div>

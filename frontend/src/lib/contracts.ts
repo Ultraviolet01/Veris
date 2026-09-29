@@ -363,7 +363,12 @@ export interface MarketplaceDataset {
   description: string;
   freshnessSlaSeconds: number;
   priceUsdc: number;
-  reliabilityBps: number; // e.g. 9940 = 99.4%
+  /**
+   * reliabilityBps and totalJobs are live values sourced from ReputationRegistry.getReputation()
+   * and ACPCore job events. The values below are protocol-design defaults used when the
+   * on-chain read has not yet resolved. UI components should always prefer live on-chain data.
+   */
+  reliabilityBps: number;
   totalJobs: number;
   sourceChain: string;
   payoutAddress: `0x${string}`;

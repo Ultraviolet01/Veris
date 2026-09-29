@@ -97,9 +97,14 @@ export function SiteNav({ activeView, setActiveView, onOpenSellerStudio }: SiteN
     <div className="fixed top-5 left-0 right-0 z-50 flex justify-center px-4 md:px-6">
       <nav className="flex w-full max-w-6xl items-center justify-between rounded-full border border-white/10 bg-[#06070b]/85 p-2 pl-4 md:pl-5 shadow-2xl backdrop-blur-xl ring-1 ring-white/5">
         {/* Logo */}
-        <div onClick={() => handleTabClick("home")} className="cursor-pointer">
+        <button
+          type="button"
+          onClick={() => handleTabClick("home")}
+          className="cursor-pointer bg-transparent border-0 p-0"
+          aria-label="Go to home"
+        >
           <SiteLogo />
-        </div>
+        </button>
 
         {/* Desktop View Switcher: Home, How it works, Docs */}
         <div className="hidden lg:flex items-center gap-2.5 bg-white/[0.03] p-1.5 rounded-full border border-white/5 shadow-inner">
@@ -138,7 +143,10 @@ export function SiteNav({ activeView, setActiveView, onOpenSellerStudio }: SiteN
 
           {/* Mobile menu hamburger */}
           <button
+            type="button"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            aria-label={mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
+            aria-expanded={mobileMenuOpen}
             className="lg:hidden p-2 rounded-full text-neutral-400 hover:text-white hover:bg-white/10 transition-colors"
           >
             {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}

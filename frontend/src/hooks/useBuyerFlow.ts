@@ -414,9 +414,10 @@ export function useBuyerFlow() {
           })
         );
 
-        const safeAge = Number(
-          (Math.random() * (dataset.freshnessSlaSeconds * 0.35) + 0.6).toFixed(1)
-        );
+        // safeAge is the client-side hint for fetchRealLivePayload to know how fresh to request the data.
+        // The actual data age is determined and enforced on-chain by SlaEvaluator.sol — this value
+        // only affects which snapshot is fetched for display; SLA enforcement is not client-controlled.
+        const safeAge = 1.2; // request near-realtime; operator signs actual sourceBlockTimestamp
         const deliveredData = await fetchRealLivePayload(
           dataset.name,
           safeAge,

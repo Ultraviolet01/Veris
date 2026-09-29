@@ -23,6 +23,8 @@ import { BuyerModal } from "./components/BuyerModal";
 import { SellerStudio } from "./components/SellerStudio";
 import { AgentChatbot } from "./components/AgentChatbot";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { CookieBanner } from "./components/CookieBanner";
+import { LegalModal } from "./components/LegalModal";
 import { type MarketplaceDataset } from "./lib/contracts";
 
 export function VerisApp() {
@@ -30,6 +32,7 @@ export function VerisApp() {
   const [showSellerStudioModal, setShowSellerStudioModal] = useState(false);
   const [selectedDataset, setSelectedDataset] = useState<MarketplaceDataset | null>(null);
   const [pendingMarketplaceNav, setPendingMarketplaceNav] = useState(false);
+  const [legalView, setLegalView] = useState<"privacy" | "terms" | null>(null);
 
   const isLoggedIn = useIsLoggedIn();
   const { setShowAuthFlow } = useDynamicContext();
@@ -109,6 +112,8 @@ export function VerisApp() {
               window.scrollTo({ top: 0, behavior: "smooth" });
             }}
             onOpenSellerStudio={() => setShowSellerStudioModal(true)}
+            onOpenPrivacy={() => setLegalView("privacy")}
+            onOpenTerms={() => setLegalView("terms")}
           />
         </>
       )}
@@ -191,6 +196,14 @@ export function VerisApp() {
       <ErrorBoundary>
         <AgentChatbot />
       </ErrorBoundary>
+
+      {/* Cookie consent banner */}
+      <CookieBanner onOpenPrivacy={() => setLegalView("privacy")} />
+
+      {/* Legal modals (Privacy Policy / Terms of Service) */}
+      {legalView && (
+        <LegalModal view={legalView} onClose={() => setLegalView(null)} />
+      )}
     </div>
   );
 }

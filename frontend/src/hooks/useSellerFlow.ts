@@ -112,7 +112,7 @@ export function useSellerFlow() {
           console.warn("[Veris Seller] getWalletClient note:", wcErr);
         }
 
-        let txHash = "0x" + Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join("");
+        let txHash: string | undefined;
 
         if (walletClient && walletClient.account) {
           try {
