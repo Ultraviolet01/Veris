@@ -988,6 +988,8 @@ export function DeliveredDataView({
           <button
             type="button"
             onClick={() => setJsonExpanded(!jsonExpanded)}
+            aria-expanded={jsonExpanded}
+            aria-controls="ddv-json-payload"
             className="flex items-center gap-2 text-cyan-300 hover:text-cyan-200 text-[11px] cursor-pointer"
           >
             <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />

@@ -6,7 +6,8 @@
   --color-neutral-200: #e5e5e5;
   --color-neutral-300: #d4d4d4;
   --color-neutral-400: #a3a3a3;
-  --color-neutral-500: #737373;
+  /* Raised from #737373 (~4.1:1) to #8a8a8a (~5.1:1) on bg-dark #020202 — WCAG AA */
+  --color-neutral-500: #8a8a8a;
   --color-neutral-600: #525252;
   --color-neutral-700: #404040;
   --color-neutral-800: #262626;
@@ -83,7 +84,8 @@
   font-weight: 600;
   background-color: rgba(131, 110, 249, 0.12);
   border: 1px solid rgba(131, 110, 249, 0.3);
-  color: #c4bbfd;
+  /* Raised text contrast: #d4ccfe is ~6.5:1 on the purple-tinted bg */
+  color: #d4ccfe;
 }
 
 body {
@@ -113,10 +115,13 @@ button:not(:disabled),
 }
 
 a:focus-visible,
-button:focus-visible {
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
   outline: 2px solid #ff5a36;
   outline-offset: 3px;
-  border-radius: 9999px;
+  border-radius: 4px;
 }
 
 .grid-lines {

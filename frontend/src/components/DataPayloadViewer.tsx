@@ -237,7 +237,10 @@ export const DataPayloadViewer: React.FC<DataPayloadViewerProps> = ({
         {/* Expand/Collapse Raw JSON Payload */}
         <div className="pt-1">
           <button
+            type="button"
             onClick={() => setIsRawExpanded(!isRawExpanded)}
+            aria-expanded={isRawExpanded}
+            aria-controls="dpv-raw-json"
             className="w-full flex items-center justify-between text-[11px] text-zinc-400 hover:text-zinc-200 py-1 transition-colors cursor-pointer"
           >
             <div className="flex items-center gap-1.5">

@@ -28,6 +28,7 @@ export const SellerStudio: React.FC = () => {
     operatorKey: ADDRESSES.defaultOperatorKey,
     sourceChainId: MONAD_TESTNET_CHAIN_ID,
   });
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   const embeddedWalletAddress = primaryWallet?.address;
 
@@ -258,6 +259,30 @@ export const SellerStudio: React.FC = () => {
             </div>
           )}
 
+          {/* Terms Consent Checkbox */}
+          <div className="flex items-start gap-2.5 p-3 rounded-xl bg-white/[0.03] border border-white/10">
+            <input
+              id="seller-terms-consent"
+              type="checkbox"
+              checked={termsAccepted}
+              onChange={(e) => setTermsAccepted(e.target.checked)}
+              className="mt-0.5 w-4 h-4 rounded border-white/20 bg-zinc-900 accent-[#836ef9] cursor-pointer shrink-0"
+            />
+            <label htmlFor="seller-terms-consent" className="text-[11px] text-zinc-400 leading-relaxed cursor-pointer">
+              I have read and agree to the{" "}
+              <a
+                href="#terms"
+                onClick={(e) => { e.preventDefault(); window.dispatchEvent(new CustomEvent("veris:open-legal", { detail: "terms" })); }}
+                className="text-purple-400 hover:text-purple-300 underline underline-offset-2 transition-colors"
+              >
+                Terms of Service
+              </a>
+              . I understand that registering as a seller creates an on-chain record in{" "}
+              <code className="text-zinc-300 text-[10px]">SellerRegistry.sol</code> on Monad Testnet,
+              and that my payout address will be publicly visible on-chain.
+            </label>
+          </div>
+
           {/* Submit Button */}
           <div className="pt-2 flex items-center justify-end gap-3">
             {receipt && (
@@ -273,8 +298,8 @@ export const SellerStudio: React.FC = () => {
             <button
               id="seller-submit-btn"
               type="submit"
-              disabled={!isLoggedIn || step === "submitting_tx" || step === "preparing"}
-              className="btn-primary text-xs py-2.5 px-6 flex items-center gap-2"
+              disabled={!isLoggedIn || !termsAccepted || step === "submitting_tx" || step === "preparing"}
+              className="btn-primary text-xs py-2.5 px-6 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {step === "submitting_tx" || step === "preparing" ? (
                 <>

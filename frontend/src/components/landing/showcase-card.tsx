@@ -39,9 +39,14 @@ export function ShowcaseCard({ image, icon: Icon, title, caption, href = "#", on
 
   if (onClick) {
     return (
-      <div onClick={onClick} className="flex-1 cursor-pointer">
+      <button
+        type="button"
+        onClick={onClick}
+        className="flex-1 cursor-pointer bg-transparent border-0 p-0 text-left w-full"
+        aria-label={title}
+      >
         {inner}
-      </div>
+      </button>
     );
   }
 

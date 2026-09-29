@@ -40,6 +40,16 @@ export function VerisApp() {
   // Ensures embedded wallet creation & Monad network auto-switch runs upon sign in
   useWalletCreation();
 
+  // Listen for veris:open-legal events dispatched by child components (e.g. SellerStudio consent checkbox)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const view = (e as CustomEvent<"privacy" | "terms">).detail;
+      if (view === "privacy" || view === "terms") setLegalView(view);
+    };
+    window.addEventListener("veris:open-legal", handler);
+    return () => window.removeEventListener("veris:open-legal", handler);
+  }, []);
+
   const handleOpenMarketplace = () => {
     setActiveView("marketplace");
     window.scrollTo({ top: 0, behavior: "smooth" });
