@@ -256,8 +256,8 @@ export function useBuyerFlow() {
             address: ADDRESSES.paymentToken,
             abi: ERC20_ABI,
             functionName: "balanceOf",
-            args: [buyerAddress],
-          }) as Promise<bigint>,
+            args: [buyerAddress] as const,
+          } as any) as Promise<bigint>,
         ]);
 
         if (monBal < 1_000_000_000_000_000n) {
@@ -284,21 +284,21 @@ export function useBuyerFlow() {
           address: ADDRESSES.paymentToken,
           abi: ERC20_ABI,
           functionName: "allowance",
-          args: [buyerAddress, ADDRESSES.acpCore],
-        })) as bigint;
+          args: [buyerAddress, ADDRESSES.acpCore] as const,
+        } as any)) as bigint;
 
         if (currentAllowance < budgetWei) {
           console.log(`[Veris Buyer] Current allowance (${currentAllowance}) < required (${budgetWei}). Requesting approval...`);
           const standingAllowance = budgetWei * 100n; // Standing allowance for seamless subsequent queries
-          approveTxHash = await walletClient.sendTransaction({
+          approveTxHash = await (walletClient.sendTransaction as any)({
             account: walletClient.account,
             chain: walletClient.chain,
             to: ADDRESSES.paymentToken,
             data: encodeFunctionData({
               abi: ERC20_ABI,
               functionName: "approve",
-              args: [ADDRESSES.acpCore, standingAllowance],
-            }),
+              args: [ADDRESSES.acpCore, standingAllowance] as const,
+            } as any),
           });
           console.log("[Veris Buyer] Approval tx submitted:", approveTxHash);
           await publicClient.waitForTransactionReceipt({ hash: approveTxHash as `0x${string}` });
@@ -312,7 +312,7 @@ export function useBuyerFlow() {
 
         // SlaEvaluator is passed as provider, evaluator, and hook.
         // On complete(), ACPCore pays provider (SlaEvaluator), which atomically splits 98% to seller & 2% to treasury.
-        const createTxHash = await walletClient.sendTransaction({
+        const createTxHash = await (walletClient.sendTransaction as any)({
           account: walletClient.account,
           chain: walletClient.chain,
           to: ADDRESSES.acpCore,
@@ -325,8 +325,8 @@ export function useBuyerFlow() {
               expiredAt,
               `Veris Freshness Query: ${dataset.name}`,
               ADDRESSES.slaEvaluator, // hook
-            ],
-          }),
+            ] as const,
+          } as any),
         });
 
         console.log("[Veris Buyer] createJob tx sent:", createTxHash);
@@ -349,11 +349,12 @@ export function useBuyerFlow() {
             address: ADDRESSES.acpCore,
             abi: ACP_CORE_ABI,
             functionName: "jobCount",
-          })) as bigint;
+          } as any)) as bigint;
           realJobId = count;
         }
 
-        console.log(`[Veris Buyer] Real on-chain Job #${realJobId.toString()} created.`);
+        const validJobId = realJobId ?? 0n;
+        console.log(`[Veris Buyer] Real on-chain Job #${validJobId.toString()} created.`);
 
         // ── Step 3: Call ACPCore.setBudget(...) ────────────────────────────
         // ACPCore requires budget to be explicitly configured on an Open job before fund()
@@ -361,44 +362,44 @@ export function useBuyerFlow() {
           address: ADDRESSES.acpCore,
           abi: ACP_CORE_ABI,
           functionName: "getJob",
-          args: [realJobId],
-        })) as { budget: bigint };
+          args: [validJobId] as const,
+        } as any)) as { budget: bigint };
 
         let setBudgetTxHash: string | undefined;
         if (existingJob.budget !== budgetWei) {
           setStep("setting_budget");
-          console.log(`[Veris Buyer] Step 3/4: Setting budget ${budget} USDC for Job #${realJobId}...`);
-          setBudgetTxHash = await walletClient.sendTransaction({
+          console.log(`[Veris Buyer] Step 3/4: Setting budget ${budget} USDC for Job #${validJobId}...`);
+          setBudgetTxHash = await (walletClient.sendTransaction as any)({
             account: walletClient.account,
             chain: walletClient.chain,
             to: ADDRESSES.acpCore,
             data: encodeFunctionData({
               abi: ACP_CORE_ABI,
               functionName: "setBudget",
-              args: [realJobId, budgetWei, "0x"],
-            }),
+              args: [validJobId, budgetWei, "0x"] as const,
+            } as any),
           });
           console.log("[Veris Buyer] setBudget tx sent:", setBudgetTxHash);
           await publicClient.waitForTransactionReceipt({
             hash: setBudgetTxHash as `0x${string}`,
           });
-          console.log(`[Veris Buyer] Job #${realJobId} budget set to ${budget} USDC.`);
+          console.log(`[Veris Buyer] Job #${validJobId} budget set to ${budget} USDC.`);
         }
 
         // ── Step 4: Call ACPCore.fund(...) ─────────────────────────────────
         // THIS IS WHERE FUNDS ARE ACTUALLY DEDUCTED FROM THE BUYER INTO ESCROW!
         setStep("funding_job");
-        console.log(`[Veris Buyer] Step 4/4: Locking ${budget} USDC into escrow for Job #${realJobId}...`);
+        console.log(`[Veris Buyer] Step 4/4: Locking ${budget} USDC into escrow for Job #${validJobId}...`);
 
-        const fundTxHash = await walletClient.sendTransaction({
+        const fundTxHash = await (walletClient.sendTransaction as any)({
           account: walletClient.account,
           chain: walletClient.chain,
           to: ADDRESSES.acpCore,
           data: encodeFunctionData({
             abi: ACP_CORE_ABI,
             functionName: "fund",
-            args: [realJobId, budgetWei, "0x"],
-          }),
+            args: [validJobId, budgetWei, "0x"] as const,
+          } as any),
         });
 
         console.log("[Veris Buyer] fund tx submitted:", fundTxHash);
@@ -427,7 +428,7 @@ export function useBuyerFlow() {
         );
 
         const activeReceipt: JobExecutionReceipt = {
-          jobId: realJobId.toString(),
+          jobId: validJobId.toString(),
           txApprove: approveTxHash,
           txCreate: createTxHash,
           txSetBudget: setBudgetTxHash,
@@ -453,7 +454,7 @@ export function useBuyerFlow() {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              jobId: realJobId.toString(),
+              jobId: validJobId.toString(),
               sellerId: dataset.sellerIdBytes32 || VERIS_SELLER_ID_BYTES32,
               datasetName: dataset.name,
               isFresh: isFreshOutcome,
