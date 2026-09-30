@@ -81,8 +81,8 @@ export function useUsdcBalance(): UsdcBalanceState {
         address: ADDRESSES.paymentToken,
         abi: ERC20_ABI,
         functionName: "balanceOf",
-        args: [walletAddress as `0x${string}`],
-      }) as Promise<bigint>;
+        args: [walletAddress as `0x${string}`] as const,
+      } as any) as Promise<bigint>;
 
       // 2. Fetch Native MON balance (18 decimals)
       const monPromise = publicClient.getBalance({
