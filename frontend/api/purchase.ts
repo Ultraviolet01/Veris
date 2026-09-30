@@ -703,6 +703,7 @@ export default async function handler(req: any, res: any) {
 
     const acpCoreAddress = (process.env.VITE_ACP_CORE_ADDRESS || '0x5898d78653C1f691431A045580c1b1D6aFC28AF9') as `0x${string}`;
     const slaEvaluatorAddress = (process.env.VITE_SLA_EVALUATOR_ADDRESS || '0xfc10869E2Bb2E8060DD59C59D0aAB01475bb75A0') as `0x${string}`;
+    const usdcAddress = (process.env.VITE_PAYMENT_TOKEN_ADDRESS || '0x534b2f3A21130d7a60830c2Df862319e593943A3') as `0x${string}`;
     const rpcUrl = process.env.VITE_MONAD_TESTNET_RPC || 'https://testnet-rpc.monad.xyz';
 
     const monadTestnet = defineChain({
@@ -722,7 +723,7 @@ export default async function handler(req: any, res: any) {
     // Pre-flight check: ensure operator has sufficient MON for gas and USDC for escrow
     const [operatorMonBal, operatorUsdcBal] = await Promise.all([
       publicClient.getBalance({ address: operatorAccount.address }),
-      publicClient.readContract({
+      (publicClient.readContract as any)({
         address: usdcAddress,
         abi: [{ name: 'balanceOf', type: 'function', stateMutability: 'view', inputs: [{ type: 'address', name: 'account' }], outputs: [{ type: 'uint256' }] }],
         functionName: 'balanceOf',
