@@ -8,6 +8,8 @@ import {
   encodeAbiParameters,
   stringToBytes,
   defineChain,
+  formatEther,
+  formatUnits,
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
@@ -716,6 +718,29 @@ export default async function handler(req: any, res: any) {
 
     const budgetWei = parseUnits(budgetUsdc.toString(), 6);
     const expiredAt = BigInt(Math.floor(Date.now() / 1000) + 3600);
+
+    // Pre-flight check: ensure operator has sufficient MON for gas and USDC for escrow
+    const [operatorMonBal, operatorUsdcBal] = await Promise.all([
+      publicClient.getBalance({ address: operatorAccount.address }),
+      publicClient.readContract({
+        address: usdcAddress,
+        abi: [{ name: 'balanceOf', type: 'function', stateMutability: 'view', inputs: [{ type: 'address', name: 'account' }], outputs: [{ type: 'uint256' }] }],
+        functionName: 'balanceOf',
+        args: [operatorAccount.address],
+      }) as Promise<bigint>,
+    ]);
+
+    if (operatorMonBal < 20_000_000_000_000_000n) { // 0.02 MON minimum for contract transactions
+      return res.status(400).json({
+        error: `Operator wallet (${operatorAccount.address}) is low on testnet MON gas (${formatEther(operatorMonBal)} MON remaining). Please send testnet MON to this address, or connect your Web3 wallet.`,
+      });
+    }
+
+    if (operatorUsdcBal < budgetWei) {
+      return res.status(400).json({
+        error: `Operator wallet (${operatorAccount.address}) has insufficient testnet USDC (${formatUnits(operatorUsdcBal, 6)} USDC available, ${budgetUsdc} USDC required). Please top up testnet USDC or connect your wallet.`,
+      });
+    }
 
     // Pre-flight live data verification — enforce zero-falsification policy
     const baselineArrivalAge = 1.8;
