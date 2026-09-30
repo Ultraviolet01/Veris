@@ -66,20 +66,25 @@ if result.is_fresh:
     print(f"Monad Block: {result.proof['block_height']}")
 else:
     print("SLA missed. 100% refund confirmed in escrow contract.")`,
-    curl: `# Step 1: Query endpoint with x402 payment header
-curl -X POST https://api.veris.market/v1/query/monad-dex-prices \\
+    curl: `# Query live Veris escrow relayer endpoint on Vercel
+curl -X POST https://veris-monad.vercel.app/api/purchase \\
   -H "Content-Type: application/json" \\
-  -H "X-PAYMENT-ESCROW: 0x4a9fb72e018a...monad" \\
   -d '{
-    "asset": "MON/USDC",
-    "maxSlaSeconds": 10
+    "datasetName": "Kuru CLOB Order Book Depth",
+    "budgetUsdc": 0.25,
+    "freshnessSlaSeconds": 10,
+    "isFresh": true
   }'
 
-# Response returns verified block attestation:
+# Response returns verified on-chain settlement and authenticated data:
 # {
-#   "status": "PROOF_VERIFIED",
-#   "data": { "price": 1.8427 },
-#   "proof": { "sourceBlock": 38219447, "timestamp": 1727083458 }
+#   "success": true,
+#   "jobId": "194",
+#   "txFund": "0x4a9fb72e018a...monad",
+#   "txResolve": "0x58bafe2bc0...monad",
+#   "status": "SLA Met",
+#   "verdict": "APPROVED",
+#   "realPayload": { ... }
 # }`,
   };
 
