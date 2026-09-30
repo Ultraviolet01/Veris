@@ -91,18 +91,28 @@ export async function fetchRealLivePayload(
         }),
       ]);
 
-      const aTokenBal = await client.readContract({
-        address: usdcAddress,
-        abi: erc20Abi,
-        functionName: 'balanceOf',
-        args: [reserveData.aTokenAddress],
-      });
+      const [aTokenBal, varDebtSupply] = await Promise.all([
+        client.readContract({
+          address: usdcAddress,
+          abi: erc20Abi,
+          functionName: 'balanceOf',
+          args: [reserveData.aTokenAddress],
+        }),
+        client.readContract({
+          address: reserveData.variableDebtTokenAddress,
+          abi: parseAbi(['function totalSupply() view returns (uint256)']),
+          functionName: 'totalSupply',
+        }),
+      ]);
 
       const RAY = 10n ** 27n;
       const supplyApy = (Number((reserveData.currentLiquidityRate * 10000n) / RAY) / 100).toFixed(2);
       const borrowApy = (Number((reserveData.currentVariableBorrowRate * 10000n) / RAY) / 100).toFixed(2);
       const stableApy = (Number((reserveData.currentStableBorrowRate * 10000n) / RAY) / 100).toFixed(2);
-      const totalReservesUsdc = Math.round(Number(aTokenBal / 1000000n));
+      const availableLiquidity = Math.round(Number(aTokenBal / 1000000n));
+      const totalBorrows = Math.round(Number(varDebtSupply / 1000000n));
+      const totalPool = availableLiquidity + totalBorrows;
+      const utilization = totalPool > 0 ? ((totalBorrows / totalPool) * 100).toFixed(1) : '0.0';
 
       return {
         source: 'Aave V3 Protocol (Pool.sol)',
@@ -115,9 +125,9 @@ export async function fetchRealLivePayload(
         liquidityRateApy: `${supplyApy}%`,
         variableBorrowRateApy: `${borrowApy}%`,
         stableBorrowRateApy: Number(stableApy) > 0 ? `${stableApy}%` : '5.90%',
-        utilizationRate: '82.1%',
-        availableLiquidityUsdc: `$${totalReservesUsdc.toLocaleString()}`,
-        totalBorrowsUsdc: `$${Math.round(totalReservesUsdc * 0.82).toLocaleString()}`,
+        utilizationRate: `${utilization}%`,
+        availableLiquidityUsdc: `$${availableLiquidity.toLocaleString()}`,
+        totalBorrowsUsdc: `$${totalBorrows.toLocaleString()}`,
         reserveFactor: '10.0%',
         healthFactorLiquidationThreshold: 1.05,
         queryParam1: param1 || 'USDC',
