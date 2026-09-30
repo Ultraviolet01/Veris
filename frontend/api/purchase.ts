@@ -730,6 +730,8 @@ export default async function handler(req: any, res: any) {
     const budgetWei = parseUnits(budgetUsdc.toString(), 6);
     const expiredAt = BigInt(Math.floor(Date.now() / 1000) + 3600);
 
+    const isResolveOnly = (body.action === 'resolve' && body.jobId) || (body.jobId && !body.budgetUsdc);
+
     // Pre-flight check: ensure operator has sufficient MON for gas and USDC for escrow
     const [operatorMonBal, operatorUsdcBal] = await Promise.all([
       publicClient.getBalance({ address: operatorAccount.address }),
@@ -741,16 +743,18 @@ export default async function handler(req: any, res: any) {
       }) as Promise<bigint>,
     ]);
 
-    if (operatorMonBal < 20_000_000_000_000_000n) { // 0.02 MON minimum for contract transactions
-      return res.status(400).json({
-        error: `Operator wallet (${operatorAccount.address}) is low on testnet MON gas (${formatEther(operatorMonBal)} MON remaining). Please send testnet MON to this address, or connect your Web3 wallet.`,
-      });
-    }
+    if (!isResolveOnly) {
+      if (operatorMonBal < 20_000_000_000_000_000n) { // 0.02 MON minimum for contract transactions
+        return res.status(400).json({
+          error: `Operator wallet (${operatorAccount.address}) is low on testnet MON gas (${formatEther(operatorMonBal)} MON remaining). Please send testnet MON to this address, or connect your Web3 wallet.`,
+        });
+      }
 
-    if (operatorUsdcBal < budgetWei) {
-      return res.status(400).json({
-        error: `Operator wallet (${operatorAccount.address}) has insufficient testnet USDC (${formatUnits(operatorUsdcBal, 6)} USDC available, ${budgetUsdc} USDC required). Please top up testnet USDC or connect your wallet.`,
-      });
+      if (operatorUsdcBal < budgetWei) {
+        return res.status(400).json({
+          error: `Operator wallet (${operatorAccount.address}) has insufficient testnet USDC (${formatUnits(operatorUsdcBal, 6)} USDC available, ${budgetUsdc} USDC required). Please top up testnet USDC or connect your wallet.`,
+        });
+      }
     }
 
     // Pre-flight live data verification — enforce zero-falsification policy
@@ -779,46 +783,54 @@ export default async function handler(req: any, res: any) {
     const sourceBlockNumber = BigInt(livePayload.sourceBlockNumber);
     const sourceBlockTimestamp = BigInt(livePayload.sourceBlockTimestamp);
 
-    const acpAbi = parseAbi([
-      'function createJob(address provider, address evaluator, uint256 expiredAt, string calldata description, address hook) external returns (uint256 jobId)',
-      'function setBudget(uint256 jobId, uint256 amount, bytes calldata optParams) external',
-      'function fund(uint256 jobId, uint256 expectedBudget, bytes calldata optParams) external',
-    ]);
-
-    // 1. Create Job on ACPCore
-    const txCreate = await operatorWallet.writeContract({
-      address: acpCoreAddress,
-      abi: acpAbi,
-      functionName: 'createJob',
-      args: [slaEvaluatorAddress, slaEvaluatorAddress, expiredAt, `Veris Feed: ${datasetName}`, slaEvaluatorAddress],
-    });
-    const rcCreate = await publicClient.waitForTransactionReceipt({ hash: txCreate });
     let jobId = 0n;
-    for (const log of rcCreate.logs) {
-      if (log.address.toLowerCase() === acpCoreAddress.toLowerCase() && log.topics[1]) {
-        jobId = BigInt(log.topics[1]);
-        break;
+    let txCreate: string | undefined;
+    let txBudget: string | undefined;
+    let txFund: string | undefined;
+
+    if (isResolveOnly) {
+      jobId = BigInt(body.jobId);
+    } else {
+      const acpAbi = parseAbi([
+        'function createJob(address provider, address evaluator, uint256 expiredAt, string calldata description, address hook) external returns (uint256 jobId)',
+        'function setBudget(uint256 jobId, uint256 amount, bytes calldata optParams) external',
+        'function fund(uint256 jobId, uint256 expectedBudget, bytes calldata optParams) external',
+      ]);
+
+      // 1. Create Job on ACPCore
+      txCreate = await operatorWallet.writeContract({
+        address: acpCoreAddress,
+        abi: acpAbi,
+        functionName: 'createJob',
+        args: [slaEvaluatorAddress, slaEvaluatorAddress, expiredAt, `Veris Feed: ${datasetName}`, slaEvaluatorAddress],
+      });
+      const rcCreate = await publicClient.waitForTransactionReceipt({ hash: txCreate });
+      for (const log of rcCreate.logs) {
+        if (log.address.toLowerCase() === acpCoreAddress.toLowerCase() && log.topics[1]) {
+          jobId = BigInt(log.topics[1]);
+          break;
+        }
       }
+      if (jobId === 0n) jobId = BigInt(Date.now());
+
+      // 2. Set Budget on ACPCore
+      txBudget = await operatorWallet.writeContract({
+        address: acpCoreAddress,
+        abi: acpAbi,
+        functionName: 'setBudget',
+        args: [jobId, budgetWei, '0x'],
+      });
+      await publicClient.waitForTransactionReceipt({ hash: txBudget });
+
+      // 3. Fund Job
+      txFund = await operatorWallet.writeContract({
+        address: acpCoreAddress,
+        abi: acpAbi,
+        functionName: 'fund',
+        args: [jobId, budgetWei, '0x'],
+      });
+      await publicClient.waitForTransactionReceipt({ hash: txFund });
     }
-    if (jobId === 0n) jobId = BigInt(Date.now());
-
-    // 2. Set Budget on ACPCore
-    const txBudget = await operatorWallet.writeContract({
-      address: acpCoreAddress,
-      abi: acpAbi,
-      functionName: 'setBudget',
-      args: [jobId, budgetWei, '0x'],
-    });
-    await publicClient.waitForTransactionReceipt({ hash: txBudget });
-
-    // 3. Fund Job
-    const txFund = await operatorWallet.writeContract({
-      address: acpCoreAddress,
-      abi: acpAbi,
-      functionName: 'fund',
-      args: [jobId, budgetWei, '0x'],
-    });
-    await publicClient.waitForTransactionReceipt({ hash: txFund });
 
     const payloadStr = JSON.stringify(livePayload);
     const dataHash = keccak256(stringToBytes(payloadStr));
@@ -913,6 +925,8 @@ export default async function handler(req: any, res: any) {
       txSetBudget: txBudget,
       txFund,
       txResolve,
+      txHash: txResolve,
+      accepted: actuallyFresh,
       budgetUsdc,
       datasetName,
       freshnessSlaSeconds,

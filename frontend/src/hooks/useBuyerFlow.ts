@@ -463,15 +463,18 @@ export function useBuyerFlow() {
         let isFreshOutcome = !isStale;
 
         try {
-          const res = await fetch("/api/operator-resolve", {
+          const res = await fetch("/api/purchase", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
+              action: "resolve",
               jobId: validJobId.toString(),
               sellerId: dataset.sellerIdBytes32 || VERIS_SELLER_ID_BYTES32,
               datasetName: dataset.name,
               isFresh: isFreshOutcome,
               customAgeSeconds: isFreshOutcome ? 2 : dataset.freshnessSlaSeconds + 5,
+              param1: p1,
+              param2: p2,
             }),
           });
 
