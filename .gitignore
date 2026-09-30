@@ -26,6 +26,7 @@ dist-ssr/
 # ── Foundry Artifacts ──────────────────────────────────────────────────────
 broadcast/
 */broadcast/
+**/broadcast/
 
 # ── Logs & Debug Files ─────────────────────────────────────────────────────
 *.log

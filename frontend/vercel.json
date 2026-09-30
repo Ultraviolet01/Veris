@@ -7,6 +7,12 @@
     },
     "api/claude-parse.ts": {
       "maxDuration": 30
+    },
+    "api/analytics.ts": {
+      "maxDuration": 30
+    },
+    "api/graphql.ts": {
+      "maxDuration": 30
     }
   },
   "rewrites": [

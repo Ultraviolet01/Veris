@@ -55,6 +55,11 @@ Veris/
 ├── operator/         # Autonomous backend operator service
 │   └── src/          # Polling engine, data fetcher, ECDSA attestation signer
 │
+├── indexer/          # Envio HyperIndex multi-chain indexer & GraphQL analytics
+│   ├── config.yaml   # Multi-chain indexing config (Monad Testnet + Ethereum)
+│   ├── schema.graphql# 7 relational & aggregated entities (Sellers, Jobs, SLAs)
+│   └── src/          # Event handlers & live HyperSync analytics engine
+│
 ├── mcp/              # Model Context Protocol (MCP) Server for AI agents
 │   ├── src/tools/    # list_datasets, get_quote, purchase, verify_delivery, check_reputation
 │   └── config/       # veris.json dataset registry
@@ -92,7 +97,22 @@ npm install
 npm run dev
 ```
 
-### 4. Model Context Protocol Server (`mcp/`)
+### 4. Envio HyperIndex Service (`indexer/` & Vercel Serverless)
+Multi-chain real-time indexing with GraphQL & live HyperSync event streaming:
+* **Vercel Serverless Endpoints (Production):**
+  - **GraphQL Endpoint:** `https://<your-vercel-domain>/api/graphql`
+  - **Live Analytics Feed:** `https://<your-vercel-domain>/api/analytics`
+* **Local Self-Hosted Daemon:**
+  ```bash
+  cd indexer
+  npm install
+  npm run build
+  npm run start
+  ```
+  - **GraphQL Explorer:** `http://localhost:4001/graphql`
+  - **Real-time Analytics Feed:** `http://localhost:4001/api/analytics`
+
+### 5. Model Context Protocol Server (`mcp/`)
 Connect Claude Desktop, Cursor, or autonomous Python/TS agent loops:
 ```bash
 cd mcp

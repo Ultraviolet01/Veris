@@ -1,0 +1,33 @@
+[
+  {
+    "type": "event",
+    "name": "Supply",
+    "inputs": [
+      {
+        "name": "reserve",
+        "type": "address",
+        "indexed": true
+      },
+      {
+        "name": "user",
+        "type": "address",
+        "indexed": false
+      },
+      {
+        "name": "onBehalfOf",
+        "type": "address",
+        "indexed": true
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false
+      },
+      {
+        "name": "referralCode",
+        "type": "uint16",
+        "indexed": true
+      }
+    ]
+  }
+]

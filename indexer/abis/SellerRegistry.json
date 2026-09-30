@@ -1,0 +1,200 @@
+[
+  {
+    "type": "function",
+    "name": "deactivateSeller",
+    "inputs": [
+      {
+        "name": "sellerId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "getSeller",
+    "inputs": [
+      {
+        "name": "sellerId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct ISellerRegistry.SellerTerms",
+        "components": [
+          {
+            "name": "payoutAddress",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "operatorKey",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "pricePerQuery",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "freshnessWindowSeconds",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "datasetId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "sourceChainId",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "active",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "registerSeller",
+    "inputs": [
+      {
+        "name": "sellerId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "payoutAddress",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "operatorKey",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "pricePerQuery",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "freshnessWindowSeconds",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "datasetId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "sourceChainId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "updateTerms",
+    "inputs": [
+      {
+        "name": "sellerId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "newPrice",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "newFreshnessWindow",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "event",
+    "name": "SellerDeactivated",
+    "inputs": [
+      {
+        "name": "sellerId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SellerRegistered",
+    "inputs": [
+      {
+        "name": "sellerId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "payoutAddress",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "datasetId",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SellerTermsUpdated",
+    "inputs": [
+      {
+        "name": "sellerId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "newPrice",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "newFreshnessWindow",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  }
+]

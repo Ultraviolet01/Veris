@@ -42,7 +42,9 @@ const ETHEREUM_RPC_URLS = [
   'https://arb1.arbitrum.io/rpc',
 ];
 
-const MONAD_TESTNET_RPC = 'https://testnet-rpc.monad.xyz';
+const ENVIO_HYPERRPC_TOKEN = process.env.VITE_ENVIO_HYPERRPC_TOKEN || 'dc3a296f-f7c6-4b60-9bd7-a2f9bdcc4c64';
+const ENVIO_HYPERRPC_MONAD = `https://10143.rpc.hypersync.xyz/${ENVIO_HYPERRPC_TOKEN}`;
+const MONAD_TESTNET_RPC = process.env.VITE_MONAD_TESTNET_RPC || 'https://testnet-rpc.monad.xyz';
 
 function getEthClient() {
   return createPublicClient({
@@ -52,7 +54,7 @@ function getEthClient() {
 
 function getMonadClient() {
   return createPublicClient({
-    transport: http(MONAD_TESTNET_RPC, { timeout: 4500 }),
+    transport: http(ENVIO_HYPERRPC_MONAD, { timeout: 4500 }),
   });
 }
 

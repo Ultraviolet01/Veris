@@ -1,0 +1,140 @@
+"""
+Veris Protocol — Autonomous AI Agent Data Marketplace Schema
+Built for Envio HyperIndex with Multi-Chain SLA Analytics
+"""
+
+enum JobStatus {
+  OPEN
+  FUNDED
+  SUBMITTED
+  COMPLETED
+  REJECTED
+  EXPIRED
+}
+
+"""
+Registered Data Provider (Seller) on Veris
+"""
+type Seller {
+  id: ID! # sellerId (bytes32 hex)
+  owner: String!
+  payoutAddress: String!
+  operatorKey: String!
+  pricePerQuery: BigInt!
+  freshnessWindowSeconds: BigInt!
+  datasetId: String!
+  sourceChainId: BigInt!
+  active: Boolean!
+  
+  # Aggregated Metrics
+  totalJobsCreated: BigInt!
+  totalJobsCompleted: BigInt!
+  totalJobsRefunded: BigInt!
+  totalVolumeUsdc: BigInt!
+  totalProtocolFeesUsdc: BigInt!
+  
+  # Reputation Metrics (ERC-8004)
+  slaMetCount: BigInt!
+  slaMissedCount: BigInt!
+  reliabilityBps: BigInt!
+  avgDeliveryLatencySeconds: Float!
+  
+  # Relational connections
+  jobs: [Job!]! @derivedFrom(field: "seller")
+  evaluations: [SlaEvaluation!]! @derivedFrom(field: "seller")
+  dailyMetrics: [SellerDailyMetric!]! @derivedFrom(field: "seller")
+}
+
+"""
+Autonomous Escrow Job (ERC-8183 ACPCore Lifecycle)
+"""
+type Job {
+  id: ID! # numeric jobId
+  client: Client!
+  provider: String!
+  evaluator: String!
+  hook: String!
+  budget: BigInt!
+  status: JobStatus!
+  
+  createdAtBlock: BigInt!
+  createdAtTimestamp: BigInt!
+  expiredAt: BigInt!
+  
+  # Attestation & Evaluation Link
+  seller: Seller
+  evaluation: SlaEvaluation
+}
+
+"""
+Cryptographic SLA Evaluation Outcome from SlaEvaluator.sol
+"""
+type SlaEvaluation {
+  id: ID! # jobId
+  job: Job!
+  seller: Seller!
+  ageSeconds: BigInt!
+  accepted: Boolean!
+  payoutAmountUsdc: BigInt!
+  refundAmountUsdc: BigInt!
+  feeAmountUsdc: BigInt!
+  resolvedAtBlock: BigInt!
+  resolvedAtTimestamp: BigInt!
+  transactionHash: String!
+}
+
+"""
+Buyer AI Agent / Client Account
+"""
+type Client {
+  id: ID! # client wallet address
+  totalJobsFunded: BigInt!
+  totalSpentUsdc: BigInt!
+  totalRefundedUsdc: BigInt!
+  jobs: [Job!]! @derivedFrom(field: "client")
+}
+
+"""
+Derived Daily Aggregation for Seller Performance & SLA Health
+"""
+type SellerDailyMetric {
+  id: ID! # sellerId-YYYY-MM-DD
+  seller: Seller!
+  date: String!
+  timestamp: BigInt!
+  jobsCompleted: BigInt!
+  jobsRefunded: BigInt!
+  volumeUsdc: BigInt!
+  avgLatencySeconds: Float!
+  slaComplianceRate: Float!
+}
+
+"""
+Global Veris Protocol Analytics & Treasury Accounting
+"""
+type ProtocolMetric {
+  id: ID! # "global"
+  totalJobsCreated: BigInt!
+  totalJobsCompleted: BigInt!
+  totalJobsRefunded: BigInt!
+  totalVolumeEscrowedUsdc: BigInt!
+  totalVolumeSettledUsdc: BigInt!
+  totalProtocolFeesCollectedUsdc: BigInt!
+  globalSlaPassRateBps: BigInt!
+  activeSellersCount: Int!
+  updatedAtTimestamp: BigInt!
+}
+
+"""
+Cross-Chain Data Ingestion Source (Monitored via Envio Multi-Chain)
+"""
+type CrossChainDataSource {
+  id: ID! # chainId-contractAddress
+  chain: String!
+  chainId: BigInt!
+  protocol: String!
+  contractAddress: String!
+  lastEventBlock: BigInt!
+  lastEventTimestamp: BigInt!
+  totalEventsIndexed: BigInt!
+}

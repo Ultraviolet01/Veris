@@ -1,0 +1,68 @@
+# Envio HyperIndex Configuration for Veris Protocol
+# Multi-chain indexing: Monad Testnet (Escrow & SLA Settlement) + Ethereum (Live DEX & Lending Feeds)
+
+name: veris-indexer
+description: Multi-Chain Autonomous Agent Data Marketplace & Programmatic SLA Escrow Indexer
+
+networks:
+  - id: 10143 # Monad Testnet (Execution & Escrow Layer)
+    rpc_config:
+      url: https://10143.rpc.hypersync.xyz/dc3a296f-f7c6-4b60-9bd7-a2f9bdcc4c64
+    hypersync_config:
+      url: https://monad-testnet.hypersync.xyz
+    start_block: 67000000
+    contracts:
+      - name: ACPCore
+        address: 0x5898d78653C1f691431A045580c1b1D6aFC28AF9
+        abi_file_path: abis/ACPCore.json
+        handler: src/EventHandlers.ts
+        events:
+          - event: JobCreated(uint256 indexed jobId, address indexed client, address indexed evaluator, address provider, address hook, uint256 expiredAt)
+          - event: JobFunded(uint256 indexed jobId, uint256 amount)
+          - event: JobCompleted(uint256 indexed jobId, bytes reason)
+          - event: JobRejected(uint256 indexed jobId, bytes reason)
+          - event: JobExpired(uint256 indexed jobId)
+          
+      - name: SlaEvaluator
+        address: 0xfc10869E2Bb2E8060DD59C59D0aAB01475bb75A0
+        abi_file_path: abis/SlaEvaluator.json
+        handler: src/EventHandlers.ts
+        events:
+          - event: JobResolved(uint256 indexed jobId, bytes32 indexed sellerId, uint256 ageSeconds, bool accepted)
+
+      - name: SellerRegistry
+        address: 0xE0E71C31890DD9f78b3B7f147046dBF1cc374547
+        abi_file_path: abis/SellerRegistry.json
+        handler: src/EventHandlers.ts
+        events:
+          - event: SellerRegistered(bytes32 indexed sellerId, address indexed payoutAddress, bytes32 datasetId)
+          - event: SellerTermsUpdated(bytes32 indexed sellerId, uint256 newPrice, uint256 newFreshnessWindow)
+          - event: SellerDeactivated(bytes32 indexed sellerId)
+
+      - name: ReputationRegistry
+        address: 0x4b4c76a28a0f5577A80a470C64d64c4dFC5A7183
+        abi_file_path: abis/ReputationRegistry.json
+        handler: src/EventHandlers.ts
+        events:
+          - event: ReputationUpdated(bytes32 indexed sellerId, uint256 slaMetCount, uint256 slaMissedCount, uint256 reliabilityBps)
+
+  - id: 1 # Ethereum Mainnet (Cross-chain Data Ingestion Layer)
+    rpc_config:
+      url: https://1.rpc.hypersync.xyz/dc3a296f-f7c6-4b60-9bd7-a2f9bdcc4c64
+    hypersync_config:
+      url: https://eth.hypersync.xyz
+    start_block: 26090000
+    contracts:
+      - name: UniswapV3Pool
+        address: 0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640
+        abi_file_path: abis/UniswapV3Pool.json
+        handler: src/EventHandlers.ts
+        events:
+          - event: Swap(address indexed sender, address indexed recipient, int256 amount0, int256 amount1, uint160 sqrtPriceX96, uint128 liquidity, int24 tick)
+
+      - name: AavePool
+        address: 0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2
+        abi_file_path: abis/AavePool.json
+        handler: src/EventHandlers.ts
+        events:
+          - event: Supply(address indexed reserve, address user, address indexed onBehalfOf, uint256 amount, uint16 indexed referralCode)

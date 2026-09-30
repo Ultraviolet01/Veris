@@ -19,12 +19,15 @@
 import { createPublicClient, http, parseAbi } from 'viem';
 import type { DeliveredPayload } from './dataPayloads';
 
+import { getEnvioHyperRpcUrl } from './envio';
+
 const ETHEREUM_RPC_URLS = [
   'https://ethereum-rpc.publicnode.com',
   'https://eth.llamarpc.com',
   'https://arb1.arbitrum.io/rpc',
 ];
 
+const ENVIO_HYPERRPC_MONAD = getEnvioHyperRpcUrl(10143);
 const MONAD_TESTNET_RPC = 'https://testnet-rpc.monad.xyz';
 
 function getEthClient() {
@@ -35,7 +38,7 @@ function getEthClient() {
 
 function getMonadClient() {
   return createPublicClient({
-    transport: http(MONAD_TESTNET_RPC, { timeout: 4500 }),
+    transport: http(ENVIO_HYPERRPC_MONAD, { timeout: 4500 }),
   });
 }
 
