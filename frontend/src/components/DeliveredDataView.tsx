@@ -532,22 +532,22 @@ export function DeliveredDataView({
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 font-mono">
             <div className="rounded-xl border border-emerald-500/40 bg-emerald-950/25 p-3.5">
               <span className="text-[10px] text-emerald-400 uppercase font-bold block mb-1">Best Bid</span>
-              <span className="text-2xl sm:text-3xl font-black text-emerald-300 block">${payload.bestBid || "1.4250"}</span>
+              <span className="text-2xl sm:text-3xl font-black text-emerald-300 block">{payload.bestBid ? `$${payload.bestBid}` : "--"}</span>
               <span className="text-[10px] text-zinc-400 mt-1 block">Top limit buyer</span>
             </div>
             <div className="rounded-xl border border-rose-500/40 bg-rose-950/25 p-3.5">
               <span className="text-[10px] text-rose-400 uppercase font-bold block mb-1">Best Ask</span>
-              <span className="text-2xl sm:text-3xl font-black text-rose-300 block">${payload.bestAsk || "1.4258"}</span>
+              <span className="text-2xl sm:text-3xl font-black text-rose-300 block">{payload.bestAsk ? `$${payload.bestAsk}` : "--"}</span>
               <span className="text-[10px] text-zinc-400 mt-1 block">Lowest seller ask</span>
             </div>
             <div className="rounded-xl border border-white/10 bg-black/40 p-3.5">
               <span className="text-[10px] text-zinc-400 uppercase font-bold block mb-1">Spread</span>
-              <span className="text-2xl sm:text-3xl font-black text-cyan-300 block">{payload.spreadBps || (payload.spreadUsdc && payload.bestBid ? ((Number(payload.spreadUsdc) / Number(payload.bestBid)) * 10000).toFixed(1) : "5.6")} bps</span>
-              <span className="text-[10px] text-zinc-400 mt-1 block">${payload.spreadUsdc || "0.0008"} difference</span>
+              <span className="text-2xl sm:text-3xl font-black text-cyan-300 block">{payload.spreadBps ? `${payload.spreadBps} bps` : (payload.spreadUsdc && payload.bestBid ? `${((Number(payload.spreadUsdc) / Number(payload.bestBid)) * 10000).toFixed(1)} bps` : "--")}</span>
+              <span className="text-[10px] text-zinc-400 mt-1 block">{payload.spreadUsdc ? `$${payload.spreadUsdc} difference` : "Market difference"}</span>
             </div>
             <div className="rounded-xl border border-white/10 bg-black/40 p-3.5">
               <span className="text-[10px] text-zinc-400 uppercase font-bold block mb-1">Depth (&le;2%)</span>
-              <span className="text-xl sm:text-2xl font-bold text-white block truncate">{payload.depthWithin2PctUsdc || (payload.depthWithin2PercentUsdc ? `$${Number(payload.depthWithin2PercentUsdc).toLocaleString()}` : "$1,842,900")}</span>
+              <span className="text-xl sm:text-2xl font-bold text-white block truncate">{payload.depthWithin2PctUsdc || (payload.depthWithin2PercentUsdc ? `$${Number(payload.depthWithin2PercentUsdc).toLocaleString()}` : "--")}</span>
               <span className="text-[10px] text-zinc-400 mt-1 block">Liquidity depth</span>
             </div>
           </div>
@@ -555,7 +555,7 @@ export function DeliveredDataView({
           <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between text-xs text-zinc-400 flex-wrap gap-2 font-mono">
             <div className="flex items-center gap-2">
               <span className="text-zinc-500">OrderBook Contract:</span>
-              <span className="text-zinc-300 font-semibold">{payload.contractAddress || "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"}</span>
+              <span className="text-zinc-300 font-semibold">{payload.contractAddress || "0x065c9d28e428a0db40191a54d33d5b7c71a9c394"}</span>
               {sourceExplorer && (
                 <a href={sourceExplorer} target="_blank" rel="noreferrer" className="text-cyan-400 hover:text-cyan-300 inline-flex items-center gap-1">
                   <ExternalLink size={11} />

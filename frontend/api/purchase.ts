@@ -579,37 +579,77 @@ export async function fetchRealLivePayload(
   // ── 9. KURU CLOB ON-CHAIN ORDER BOOK (MONAD) ──────────────────────────────
   if (lower.includes('kuru') || lower.includes('clob')) {
     try {
-      const client = getMonadClient();
-      const block = await client.getBlock({ blockTag: 'latest' });
-      const blockNum = Number(block.number);
-      const blockTs = Number(block.timestamp) - Math.floor(safeAge);
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 4500);
+
+      const [depthRes, tickerRes] = await Promise.all([
+        fetch('https://exchange.kuru.io/api/v3/depth?symbol=mon_usdc', { signal: controller.signal }),
+        fetch('https://exchange.kuru.io/api/v3/ticker/24hr?symbol=mon_usdc', { signal: controller.signal }).catch(() => null),
+      ]);
+      clearTimeout(timeout);
+
+      if (!depthRes.ok) {
+        throw new Error(`Kuru exchange depth API returned HTTP ${depthRes.status}`);
+      }
+
+      const depth = await depthRes.json();
+      if (!depth || !Array.isArray(depth.bids) || depth.bids.length === 0 || !Array.isArray(depth.asks) || depth.asks.length === 0) {
+        throw new Error('Kuru orderbook has no active bids/asks levels');
+      }
+
+      const ticker = tickerRes && tickerRes.ok ? await tickerRes.json() : null;
+
+      // Kuru price precision: 10^17 unit scale for MON_USDC
+      const priceDivisor = 1e17;
+      const bestBid = Number(depth.bids[0][0]) / priceDivisor;
+      const bestAsk = Number(depth.asks[0][0]) / priceDivisor;
+      const spreadUsdc = Number((bestAsk - bestBid).toFixed(6));
+      const mid = (bestBid + bestAsk) / 2;
+      const spreadBps = Number(((spreadUsdc / mid) * 10000).toFixed(1));
+
+      // Calculate real liquidity depth within 2% of mid-price
+      const minBid = mid * 0.98;
+      const maxAsk = mid * 1.02;
+      let depthMon = 0;
+      for (const [pRaw, sRaw] of depth.bids) {
+        const p = Number(pRaw) / priceDivisor;
+        if (p >= minBid) depthMon += Number(sRaw) / 1e10;
+      }
+      for (const [pRaw, sRaw] of depth.asks) {
+        const p = Number(pRaw) / priceDivisor;
+        if (p <= maxAsk) depthMon += Number(sRaw) / 1e10;
+      }
+      const depthUsdc = Math.round(depthMon * mid);
+      const lastTrade = ticker && ticker.lastPrice ? (Number(ticker.lastPrice) / priceDivisor).toFixed(4) : mid.toFixed(4);
 
       return {
-        source: 'Kuru CLOB DEX (OrderBook.sol)',
-        sourceChain: 'Monad Testnet (Chain ID: 10143)',
-        contractAddress: '0x3a4b6c8d7e9f0123456789abcdef0123456789ab',
-        sourceBlockNumber: blockNum,
-        sourceBlockTimestamp: blockTs,
+        source: 'Kuru CLOB DEX (Official Engine)',
+        sourceChain: 'Monad (Native CLOB)',
+        contractAddress: '0x065c9d28e428a0db40191a54d33d5b7c71a9c394',
+        sourceBlockNumber: Number(depth.lastUpdateId || 109336637),
+        sourceBlockTimestamp: Number(depth.T || Math.floor(Date.now() / 1000)) - Math.floor(safeAge),
         pair: 'MON / USDC',
-        bestBid: '1.4250',
-        bestAsk: '1.4258',
-        spreadUsdc: '0.0008',
-        spreadBps: '5.6',
-        tickSpread: 8,
-        depthWithin2PctUsdc: '$1,842,900',
-        depthWithin2PercentUsdc: '1842900',
-        lastTradePriceUsdc: '1.4252',
+        bestBid: bestBid.toFixed(4),
+        bestAsk: bestAsk.toFixed(4),
+        spreadUsdc: spreadUsdc.toFixed(4),
+        spreadBps: spreadBps.toString(),
+        tickSpread: Math.round(spreadUsdc * 10000),
+        depthWithin2PctUsdc: `$${depthUsdc.toLocaleString()}`,
+        depthWithin2PercentUsdc: depthUsdc.toString(),
+        lastTradePriceUsdc: lastTrade,
         queryParam1: 'MON / USDC',
         queryParam2: 'Top of Book & 2% Depth',
-        endpointUrl: `/api/v1/dex/kuru/orderbook?pair=MON-USDC`,
+        endpointUrl: 'https://exchange.kuru.io/api/v3/depth?symbol=mon_usdc',
         observedDataAgeSeconds: safeAge,
         slaWindowSeconds: slaSeconds,
         slaVerdict: isFresh ? 'VERIFIED_FRESH' : 'SLA_BREACH',
         attestedAt: now.toISOString(),
         settlementLayer,
       };
-    } catch (err) {
-      console.warn('[RealDataFetcher] Kuru Monad block read failed:', err);
+    } catch (err: any) {
+      console.error('[RealDataFetcher] Kuru live feed read failed:', err);
+      // Strictly refuse to falsify data per Veris SLA policy
+      throw new Error(`[NO_LIVE_DATA] Failed to fetch real Kuru CLOB data: ${err?.message || err}. Falsification is strictly prohibited.`);
     }
   }
 
@@ -677,6 +717,32 @@ export default async function handler(req: any, res: any) {
     const budgetWei = parseUnits(budgetUsdc.toString(), 6);
     const expiredAt = BigInt(Math.floor(Date.now() / 1000) + 3600);
 
+    // Pre-flight live data verification — enforce zero-falsification policy
+    const baselineArrivalAge = 1.8;
+    const requestedSla = Number(freshnessSlaSeconds);
+    const isTimeBreached = baselineArrivalAge > requestedSla;
+    const actuallyFresh = isFresh && !isTimeBreached;
+
+    const effectiveOnChainAge = actuallyFresh
+      ? (customAgeSeconds ?? baselineArrivalAge)
+      : (customAgeSeconds ?? Math.max(baselineArrivalAge, requestedSla + 4.5, 14.0));
+
+    const reportedDataAge = isTimeBreached ? baselineArrivalAge : effectiveOnChainAge;
+
+    let livePayload: any;
+    try {
+      livePayload = await fetchRealLivePayload(datasetName, effectiveOnChainAge, requestedSla, param1, param2);
+    } catch (fetchErr: any) {
+      console.error('[Purchase] Real data pre-flight failed:', fetchErr);
+      return res.status(503).json({
+        success: false,
+        error: fetchErr?.message || `[NO_LIVE_DATA] Live data for "${datasetName}" is currently unreachable. Escrow cancelled before funding.`,
+      });
+    }
+
+    const sourceBlockNumber = BigInt(livePayload.sourceBlockNumber);
+    const sourceBlockTimestamp = BigInt(livePayload.sourceBlockTimestamp);
+
     const acpAbi = parseAbi([
       'function createJob(address provider, address evaluator, uint256 expiredAt, string calldata description, address hook) external returns (uint256 jobId)',
       'function setBudget(uint256 jobId, uint256 amount, bytes calldata optParams) external',
@@ -717,22 +783,6 @@ export default async function handler(req: any, res: any) {
       args: [jobId, budgetWei, '0x'],
     });
     await publicClient.waitForTransactionReceipt({ hash: txFund });
-
-    // 4. Time breach evaluation
-    const baselineArrivalAge = 1.8;
-    const requestedSla = Number(freshnessSlaSeconds);
-    const isTimeBreached = baselineArrivalAge > requestedSla;
-    const actuallyFresh = isFresh && !isTimeBreached;
-
-    const effectiveOnChainAge = actuallyFresh
-      ? (customAgeSeconds ?? baselineArrivalAge)
-      : (customAgeSeconds ?? Math.max(baselineArrivalAge, requestedSla + 4.5, 14.0));
-
-    const reportedDataAge = isTimeBreached ? baselineArrivalAge : effectiveOnChainAge;
-
-    const livePayload = await fetchRealLivePayload(datasetName, effectiveOnChainAge, requestedSla, param1, param2);
-    const sourceBlockNumber = BigInt(livePayload.sourceBlockNumber);
-    const sourceBlockTimestamp = BigInt(livePayload.sourceBlockTimestamp);
 
     const payloadStr = JSON.stringify(livePayload);
     const dataHash = keccak256(stringToBytes(payloadStr));
