@@ -59,9 +59,54 @@ export const ADDRESSES = {
   reputationRegistry: (import.meta.env.VITE_REPUTATION_REGISTRY_ADDRESS || "0x4b4c76a28a0f5577A80a470C64d64c4dFC5A7183") as `0x${string}`,
   verisTreasury: (import.meta.env.VITE_VERIS_TREASURY_ADDRESS || "0x402E06B57D2e5c0452492703764a7E24e9772E56") as `0x${string}`,
   paymentToken: (import.meta.env.VITE_PAYMENT_TOKEN_ADDRESS || "0x534b2f3A21130d7a60830c2Df862319e593943A3") as `0x${string}`,
+  buyerRouter: (import.meta.env.VITE_BUYER_ROUTER_ADDRESS || "0x31EBFD1278409FAC32ED8faC1eD49deF9936Fa19") as `0x${string}`,
   // Default server-side operator public key
   defaultOperatorKey: (import.meta.env.VITE_OPERATOR_PUBLIC_KEY || "0x9b3dBb74adf386b2236D34D36E05ECC45ABB38fB") as `0x${string}`,
 } as const;
+
+// ── VerisBuyerRouter ABI ───────────────────────────────────────────────────
+export const BUYER_ROUTER_ABI = [
+  {
+    type: "function",
+    name: "createAndFund",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "provider", type: "address" },
+      { name: "evaluator", type: "address" },
+      { name: "expiredAt", type: "uint256" },
+      { name: "description", type: "string" },
+      { name: "hook", type: "address" },
+      { name: "budget", type: "uint256" },
+    ],
+    outputs: [{ name: "jobId", type: "uint256" }],
+  },
+  {
+    type: "function",
+    name: "claimRefund",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "jobId", type: "uint256" }],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "buyerOf",
+    stateMutability: "view",
+    inputs: [{ name: "", type: "uint256" }],
+    outputs: [{ name: "", type: "address" }],
+  },
+  {
+    type: "event",
+    name: "RoutedJobCreated",
+    inputs: [
+      { name: "jobId", type: "uint256", indexed: true },
+      { name: "buyer", type: "address", indexed: true },
+      { name: "budget", type: "uint256", indexed: false },
+      { name: "provider", type: "address", indexed: false },
+      { name: "evaluator", type: "address", indexed: false },
+      { name: "hook", type: "address", indexed: false },
+    ],
+  },
+] as const;
 
 // ── ACPCore ABI ────────────────────────────────────────────────────────────
 export const ACP_CORE_ABI = [
