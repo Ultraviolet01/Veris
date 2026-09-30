@@ -21,6 +21,7 @@ import {
   encodeFunctionData,
   type WalletClient,
 } from "viem";
+import { sendCalls } from "viem/actions";
 import {
   ADDRESSES,
   ACP_CORE_ABI,
@@ -288,10 +289,11 @@ export function useBuyerFlow() {
           );
         }
 
-        // ── Step 1: Check and Approve USDC Allowance ────────────────────────
-        setStep("approving");
-        console.log("[Veris Buyer] Step 1/3: Checking USDC allowance for ACPCore...");
+        // ── Step 1: Check Allowance and Target Job ID ───────────────────────
         let approveTxHash: string | undefined;
+        let createTxHash: string | undefined;
+        let setBudgetTxHash: string | undefined;
+        let fundTxHash: string | undefined;
 
         const currentAllowance = (await publicClient.readContract({
           address: ADDRESSES.paymentToken,
@@ -300,126 +302,210 @@ export function useBuyerFlow() {
           args: [buyerAddress, ADDRESSES.acpCore] as const,
         } as any)) as bigint;
 
-        if (currentAllowance < budgetWei) {
-          console.log(`[Veris Buyer] Current allowance (${currentAllowance}) < required (${budgetWei}). Requesting approval...`);
-          const standingAllowance = budgetWei * 100n; // Standing allowance for seamless subsequent queries
-          approveTxHash = await (walletClient.sendTransaction as any)({
-            account: walletClient.account,
-            chain: walletClient.chain,
-            to: ADDRESSES.paymentToken,
-            data: encodeFunctionData({
-              abi: ERC20_ABI,
-              functionName: "approve",
-              args: [ADDRESSES.acpCore, standingAllowance] as const,
-            } as any),
-          });
-          console.log("[Veris Buyer] Approval tx submitted:", approveTxHash);
-          await publicClient.waitForTransactionReceipt({ hash: approveTxHash as `0x${string}` });
-          console.log("[Veris Buyer] Token approval confirmed on Monad Testnet.");
-        }
-
-        // ── Step 2: Call ACPCore.createJob(...) ────────────────────────────
-        setStep("creating_job");
-        console.log("[Veris Buyer] Step 2/3: Creating job on ACPCore with SlaEvaluator hook...");
+        const standingAllowance = budgetWei * 100n; // Standing allowance for seamless subsequent queries
+        const needsApproval = currentAllowance < budgetWei;
         const expiredAt = BigInt(Math.floor(Date.now() / 1000) + 3600); // 1 hour expiry
 
-        // SlaEvaluator is passed as provider, evaluator, and hook.
-        // On complete(), ACPCore pays provider (SlaEvaluator), which atomically splits 98% to seller & 2% to treasury.
-        const createTxHash = await (walletClient.sendTransaction as any)({
-          account: walletClient.account,
-          chain: walletClient.chain,
-          to: ADDRESSES.acpCore,
-          data: encodeFunctionData({
-            abi: ACP_CORE_ABI,
-            functionName: "createJob",
-            args: [
-              ADDRESSES.slaEvaluator, // provider
-              ADDRESSES.slaEvaluator, // evaluator
-              expiredAt,
-              `Veris Freshness Query: ${dataset.name}`,
-              ADDRESSES.slaEvaluator, // hook
-            ] as const,
-          } as any),
-        });
-
-        console.log("[Veris Buyer] createJob tx sent:", createTxHash);
-        const createReceipt = await publicClient.waitForTransactionReceipt({
-          hash: createTxHash as `0x${string}`,
-        });
-
-        // Parse actual jobId from JobCreated event log
-        let realJobId: bigint | undefined;
-        for (const log of createReceipt.logs) {
-          if (log.address.toLowerCase() === ADDRESSES.acpCore.toLowerCase() && log.topics[1]) {
-            realJobId = BigInt(log.topics[1]);
-            break;
-          }
-        }
-
-        if (realJobId === undefined) {
-          // Fallback view call
-          const count = (await publicClient.readContract({
-            address: ADDRESSES.acpCore,
-            abi: ACP_CORE_ABI,
-            functionName: "jobCount",
-          } as any)) as bigint;
-          realJobId = count;
-        }
-
-        const validJobId = realJobId ?? 0n;
-        console.log(`[Veris Buyer] Real on-chain Job #${validJobId.toString()} created.`);
-
-        // ── Step 3: Call ACPCore.setBudget(...) ────────────────────────────
-        // ACPCore requires budget to be explicitly configured on an Open job before fund()
-        const existingJob = (await publicClient.readContract({
+        // Read current jobCount to pre-compute the next jobId for atomic batching
+        const currentCount = (await publicClient.readContract({
           address: ADDRESSES.acpCore,
           abi: ACP_CORE_ABI,
-          functionName: "getJob",
-          args: [validJobId] as const,
-        } as any)) as { budget: bigint };
+          functionName: "jobCount",
+        } as any)) as bigint;
+        const expectedJobId = currentCount + 1n;
 
-        let setBudgetTxHash: string | undefined;
-        if (existingJob.budget !== budgetWei) {
-          setStep("setting_budget");
-          console.log(`[Veris Buyer] Step 3/4: Setting budget ${budget} USDC for Job #${validJobId}...`);
-          setBudgetTxHash = await (walletClient.sendTransaction as any)({
+        let validJobId: bigint = expectedJobId;
+        let batchSucceeded = false;
+
+        // ── 🚀 ATTEMPT ATOMIC 1-CONFIRMATION BATCHING (EIP-5792 / sendCalls) ──
+        try {
+          console.log(`[Veris Buyer] Attempting 1-confirmation batch for Job #${expectedJobId}...`);
+          setStep("funding_job");
+
+          const calls: Array<{ to: `0x${string}`; data: `0x${string}` }> = [];
+
+          if (needsApproval) {
+            calls.push({
+              to: ADDRESSES.paymentToken,
+              data: encodeFunctionData({
+                abi: ERC20_ABI,
+                functionName: "approve",
+                args: [ADDRESSES.acpCore, standingAllowance] as const,
+              } as any),
+            });
+          }
+
+          calls.push({
+            to: ADDRESSES.acpCore,
+            data: encodeFunctionData({
+              abi: ACP_CORE_ABI,
+              functionName: "createJob",
+              args: [
+                ADDRESSES.slaEvaluator, // provider
+                ADDRESSES.slaEvaluator, // evaluator
+                expiredAt,
+                `Veris Freshness Query: ${dataset.name}`,
+                ADDRESSES.slaEvaluator, // hook
+              ] as const,
+            } as any),
+          });
+
+          calls.push({
+            to: ADDRESSES.acpCore,
+            data: encodeFunctionData({
+              abi: ACP_CORE_ABI,
+              functionName: "setBudget",
+              args: [expectedJobId, budgetWei, "0x"] as const,
+            } as any),
+          });
+
+          calls.push({
+            to: ADDRESSES.acpCore,
+            data: encodeFunctionData({
+              abi: ACP_CORE_ABI,
+              functionName: "fund",
+              args: [expectedJobId, budgetWei, "0x"] as const,
+            } as any),
+          });
+
+          const bundleResult = await sendCalls(walletClient, {
+            calls: calls as any,
+          });
+          console.log("[Veris Buyer] Atomic bundle submitted:", bundleResult);
+
+          // Wait for block inclusion and verify on-chain status
+          await new Promise((r) => setTimeout(r, 1500));
+
+          const verifiedJob = (await publicClient.readContract({
+            address: ADDRESSES.acpCore,
+            abi: ACP_CORE_ABI,
+            functionName: "getJob",
+            args: [expectedJobId] as const,
+          } as any)) as { status: number; budget: bigint };
+
+          if (verifiedJob && (verifiedJob.status === 1 || verifiedJob.budget === budgetWei)) {
+            validJobId = expectedJobId;
+            const resHash = typeof bundleResult === "string" ? bundleResult : (bundleResult as any)?.id || "0x_batched";
+            fundTxHash = resHash;
+            createTxHash = resHash;
+            batchSucceeded = true;
+            console.log(`[Veris Buyer] 1-confirmation batch succeeded! Job #${validJobId} Funded.`);
+          }
+        } catch (batchErr) {
+          console.warn("[Veris Buyer] sendCalls not supported by wallet connector, falling back to sequential:", batchErr);
+        }
+
+        // ── FALLBACK: Sequential sendTransaction flow if batch was not supported ───
+        if (!batchSucceeded) {
+          if (needsApproval) {
+            setStep("approving");
+            console.log("[Veris Buyer] Step 1/3: Requesting USDC approval for ACPCore...");
+            approveTxHash = await (walletClient.sendTransaction as any)({
+              account: walletClient.account,
+              chain: walletClient.chain,
+              to: ADDRESSES.paymentToken,
+              data: encodeFunctionData({
+                abi: ERC20_ABI,
+                functionName: "approve",
+                args: [ADDRESSES.acpCore, standingAllowance] as const,
+              } as any),
+            });
+            console.log("[Veris Buyer] Approval tx submitted:", approveTxHash);
+            await publicClient.waitForTransactionReceipt({ hash: approveTxHash as `0x${string}` });
+            console.log("[Veris Buyer] Token approval confirmed on Monad Testnet.");
+          }
+
+          setStep("creating_job");
+          console.log("[Veris Buyer] Step 2/3: Creating job on ACPCore with SlaEvaluator hook...");
+          createTxHash = await (walletClient.sendTransaction as any)({
             account: walletClient.account,
             chain: walletClient.chain,
             to: ADDRESSES.acpCore,
             data: encodeFunctionData({
               abi: ACP_CORE_ABI,
-              functionName: "setBudget",
+              functionName: "createJob",
+              args: [
+                ADDRESSES.slaEvaluator, // provider
+                ADDRESSES.slaEvaluator, // evaluator
+                expiredAt,
+                `Veris Freshness Query: ${dataset.name}`,
+                ADDRESSES.slaEvaluator, // hook
+              ] as const,
+            } as any),
+          });
+
+          console.log("[Veris Buyer] createJob tx sent:", createTxHash);
+          const createReceipt = await publicClient.waitForTransactionReceipt({
+            hash: createTxHash as `0x${string}`,
+          });
+
+          let realJobId: bigint | undefined;
+          for (const log of createReceipt.logs) {
+            if (log.address.toLowerCase() === ADDRESSES.acpCore.toLowerCase() && log.topics[1]) {
+              realJobId = BigInt(log.topics[1]);
+              break;
+            }
+          }
+
+          if (realJobId === undefined) {
+            const count = (await publicClient.readContract({
+              address: ADDRESSES.acpCore,
+              abi: ACP_CORE_ABI,
+              functionName: "jobCount",
+            } as any)) as bigint;
+            realJobId = count;
+          }
+
+          validJobId = realJobId ?? expectedJobId;
+          console.log(`[Veris Buyer] Real on-chain Job #${validJobId.toString()} created.`);
+
+          const existingJob = (await publicClient.readContract({
+            address: ADDRESSES.acpCore,
+            abi: ACP_CORE_ABI,
+            functionName: "getJob",
+            args: [validJobId] as const,
+          } as any)) as { budget: bigint };
+
+          if (existingJob.budget !== budgetWei) {
+            setStep("setting_budget");
+            console.log(`[Veris Buyer] Step 3/4: Setting budget ${budget} USDC for Job #${validJobId}...`);
+            setBudgetTxHash = await (walletClient.sendTransaction as any)({
+              account: walletClient.account,
+              chain: walletClient.chain,
+              to: ADDRESSES.acpCore,
+              data: encodeFunctionData({
+                abi: ACP_CORE_ABI,
+                functionName: "setBudget",
+                args: [validJobId, budgetWei, "0x"] as const,
+              } as any),
+            });
+            console.log("[Veris Buyer] setBudget tx sent:", setBudgetTxHash);
+            await publicClient.waitForTransactionReceipt({
+              hash: setBudgetTxHash as `0x${string}`,
+            });
+            console.log(`[Veris Buyer] Job #${validJobId} budget set to ${budget} USDC.`);
+          }
+
+          setStep("funding_job");
+          console.log(`[Veris Buyer] Step 4/4: Locking ${budget} USDC into escrow for Job #${validJobId}...`);
+
+          fundTxHash = await (walletClient.sendTransaction as any)({
+            account: walletClient.account,
+            chain: walletClient.chain,
+            to: ADDRESSES.acpCore,
+            data: encodeFunctionData({
+              abi: ACP_CORE_ABI,
+              functionName: "fund",
               args: [validJobId, budgetWei, "0x"] as const,
             } as any),
           });
-          console.log("[Veris Buyer] setBudget tx sent:", setBudgetTxHash);
+
+          console.log("[Veris Buyer] fund tx submitted:", fundTxHash);
           await publicClient.waitForTransactionReceipt({
-            hash: setBudgetTxHash as `0x${string}`,
+            hash: fundTxHash as `0x${string}`,
           });
-          console.log(`[Veris Buyer] Job #${validJobId} budget set to ${budget} USDC.`);
+          console.log(`[Veris Buyer] Escrow funded! USDC successfully transferred from buyer to ACPCore.`);
         }
-
-        // ── Step 4: Call ACPCore.fund(...) ─────────────────────────────────
-        // THIS IS WHERE FUNDS ARE ACTUALLY DEDUCTED FROM THE BUYER INTO ESCROW!
-        setStep("funding_job");
-        console.log(`[Veris Buyer] Step 4/4: Locking ${budget} USDC into escrow for Job #${validJobId}...`);
-
-        const fundTxHash = await (walletClient.sendTransaction as any)({
-          account: walletClient.account,
-          chain: walletClient.chain,
-          to: ADDRESSES.acpCore,
-          data: encodeFunctionData({
-            abi: ACP_CORE_ABI,
-            functionName: "fund",
-            args: [validJobId, budgetWei, "0x"] as const,
-          } as any),
-        });
-
-        console.log("[Veris Buyer] fund tx submitted:", fundTxHash);
-        await publicClient.waitForTransactionReceipt({
-          hash: fundTxHash as `0x${string}`,
-        });
-        console.log(`[Veris Buyer] Escrow funded! USDC successfully transferred from buyer to ACPCore.`);
 
         // Real-time balance deduction upon escrow deposit
         window.dispatchEvent(
