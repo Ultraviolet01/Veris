@@ -551,6 +551,7 @@ export const AgentChatbot: React.FC = () => {
           customBudget: proposal.maxPrice,
           customFreshnessSlaSeconds: proposal.maxAgeSeconds,
           forceStale: forceStale || proposal.forceStale,
+          lane: primaryWallet ? "wallet" : "instant",
         }
       );
 

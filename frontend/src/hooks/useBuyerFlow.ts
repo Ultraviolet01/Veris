@@ -102,7 +102,9 @@ export function useBuyerFlow() {
       const isStale = isOpts ? Boolean(customBudgetOrOptions.forceStale) : Boolean(forceStale);
       const p1 = isOpts ? customBudgetOrOptions.param1 : queryParam1;
       const p2 = isOpts ? customBudgetOrOptions.param2 : queryParam2;
-      const lane = isOpts ? customBudgetOrOptions.lane || "instant" : executionLane || "instant";
+      const lane = isOpts
+        ? customBudgetOrOptions.lane || (primaryWallet ? "wallet" : "instant")
+        : executionLane || (primaryWallet ? "wallet" : "instant");
 
       setError(null);
 
