@@ -42,9 +42,7 @@ export function useWalletCreation() {
   const [activeWallet, setActiveWallet] = useState<WalletAccount | null>(null);
   const inProgressRef = useRef(false);
 
-  const isMonadNetwork =
-    Number(network) === MONAD_TESTNET_CHAIN_ID ||
-    Number(primaryWallet?.additionalAddresses?.find(() => true) ?? 0) === MONAD_TESTNET_CHAIN_ID;
+  const isMonadNetwork = Number(network) === MONAD_TESTNET_CHAIN_ID;
 
   const createAndSwitch = useCallback(async () => {
     if (inProgressRef.current) return;

@@ -31,8 +31,8 @@ export function VerisApp() {
   const [activeView, setActiveView] = useState<AppView>("overview");
   const [showSellerStudioModal, setShowSellerStudioModal] = useState(false);
   const [selectedDataset, setSelectedDataset] = useState<MarketplaceDataset | null>(null);
-  const [pendingMarketplaceNav, setPendingMarketplaceNav] = useState(false);
   const [legalView, setLegalView] = useState<"privacy" | "terms" | null>(null);
+
 
   const isLoggedIn = useIsLoggedIn();
   const { setShowAuthFlow } = useDynamicContext();
@@ -51,6 +51,12 @@ export function VerisApp() {
   }, []);
 
   const handleOpenMarketplace = () => {
+    if (!isLoggedIn) {
+      // Persist intent in sessionStorage so it survives Dynamic's multi-step signup remounts
+      sessionStorage.setItem("veris:pendingNav", "marketplace");
+      setShowAuthFlow(true);
+      return;
+    }
     setActiveView("marketplace");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -64,6 +70,20 @@ export function VerisApp() {
     setActiveView("reputation");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
+
+  // Listen for Dynamic's onAuthSuccess event and execute any pending navigation
+  useEffect(() => {
+    const handler = () => {
+      const pending = sessionStorage.getItem("veris:pendingNav");
+      if (pending === "marketplace") {
+        sessionStorage.removeItem("veris:pendingNav");
+        setActiveView("marketplace");
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    };
+    window.addEventListener("veris:auth-success", handler);
+    return () => window.removeEventListener("veris:auth-success", handler);
+  }, []);
 
   return (
     <div className="relative min-h-screen overflow-x-hidden pt-28 bg-[#020202] text-[#a3a3a3]">

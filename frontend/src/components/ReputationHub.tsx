@@ -14,6 +14,17 @@ export const ReputationHub: React.FC = () => {
   );
   const [customId, setCustomId] = useState<string>("");
 
+  // Filter sellers by customId (matches sellerId prefix or name substring)
+  const trimmedId = customId.trim().toLowerCase();
+  const matchedByCustomId = trimmedId
+    ? FEATURED_DATASETS.filter(
+        (d) =>
+          d.sellerId.toLowerCase().includes(trimmedId) ||
+          d.name.toLowerCase().includes(trimmedId)
+      )
+    : null;
+  const displayedDatasets = matchedByCustomId ?? FEATURED_DATASETS;
+
   const currentDataset =
     FEATURED_DATASETS.find((d) => d.name === selectedDatasetName) ||
     FEATURED_DATASETS[0];
@@ -70,28 +81,32 @@ export const ReputationHub: React.FC = () => {
             Verified Sellers
           </h3>
           <div className="space-y-2 mb-4">
-            {FEATURED_DATASETS.map((ds) => (
-              <button
-                key={ds.name}
-                id={`rep-seller-btn-${ds.name.toLowerCase().replace(/[^a-z0-9]/g, "-").slice(0, 15)}`}
-                onClick={() => setSelectedDatasetName(ds.name)}
-                className={`w-full text-left p-3 rounded-xl border transition-all ${
-                  selectedDatasetName === ds.name
-                    ? "bg-[#836ef9]/15 border-[#836ef9]/50 shadow-md shadow-[#836ef9]/10"
-                    : "bg-white/5 border-white/5 hover:bg-white/10"
-                }`}
-              >
-                <div className="text-xs font-bold text-white font-['Outfit'] truncate mb-1">
-                  {ds.name}
-                </div>
-                <div className="flex items-center justify-between text-[11px] text-zinc-400">
-                  <span className="font-mono text-purple-300 font-medium">{ds.sellerId}</span>
-                  <span className="text-emerald-400 font-semibold">
-                    {(ds.reliabilityBps / 100).toFixed(1)}% SLA
-                  </span>
-                </div>
-              </button>
-            ))}
+            {displayedDatasets.length === 0 ? (
+              <p className="text-xs text-zinc-500 italic px-1">No sellers match "{customId}".</p>
+            ) : (
+              displayedDatasets.map((ds) => (
+                <button
+                  key={ds.name}
+                  id={`rep-seller-btn-${ds.name.toLowerCase().replace(/[^a-z0-9]/g, "-").slice(0, 15)}`}
+                  onClick={() => setSelectedDatasetName(ds.name)}
+                  className={`w-full text-left p-3 rounded-xl border transition-all ${
+                    selectedDatasetName === ds.name
+                      ? "bg-[#836ef9]/15 border-[#836ef9]/50 shadow-md shadow-[#836ef9]/10"
+                      : "bg-white/5 border-white/5 hover:bg-white/10"
+                  }`}
+                >
+                  <div className="text-xs font-bold text-white font-['Outfit'] truncate mb-1">
+                    {ds.name}
+                  </div>
+                  <div className="flex items-center justify-between text-[11px] text-zinc-400">
+                    <span className="font-mono text-purple-300 font-medium">{ds.sellerId}</span>
+                    <span className="text-emerald-400 font-semibold">
+                      {(ds.reliabilityBps / 100).toFixed(1)}% SLA
+                    </span>
+                  </div>
+                </button>
+              ))
+            )}
           </div>
 
           <div className="pt-3 border-t border-white/10">

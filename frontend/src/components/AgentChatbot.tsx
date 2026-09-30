@@ -601,14 +601,6 @@ export const AgentChatbot: React.FC = () => {
     }
   };
 
-  /** Toggle the "or make it fail" checkbox on a proposal */
-  const toggleForceStale = (msgId: string) => {
-    setMessages((prev) =>
-      prev.map((m) =>
-        m.id === msgId ? { ...m, forceStaleSelected: !m.forceStaleSelected } : m
-      )
-    );
-  };
 
   return (
     <>
@@ -911,16 +903,6 @@ export const AgentChatbot: React.FC = () => {
                             <Play size={12} className="fill-current" />
                             <span>Run ↵</span>
                           </button>
-
-                          <label className="flex items-center gap-1.5 text-xs text-amber-300 cursor-pointer select-none">
-                            <input
-                              type="checkbox"
-                              checked={m.forceStaleSelected ?? false}
-                              onChange={() => toggleForceStale(m.id)}
-                              className="rounded border-amber-500/50 bg-black/40 text-amber-500 focus:ring-0 cursor-pointer"
-                            />
-                            <span className="text-[11px]">or make it fail</span>
-                          </label>
                         </div>
 
                         <span className="text-[10px] text-neutral-400 font-sans">

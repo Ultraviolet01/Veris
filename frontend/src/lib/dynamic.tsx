@@ -57,6 +57,8 @@ export function DynamicProvider({ children }: { children: React.ReactNode }) {
         events: {
           onAuthSuccess: async (args) => {
             console.log("[Veris Dynamic] Auth success:", args.user?.userId);
+            // Notify the app so it can complete any pending navigation
+            window.dispatchEvent(new CustomEvent("veris:auth-success"));
           },
           onLogout: () => {
             console.log("[Veris Dynamic] User logged out");

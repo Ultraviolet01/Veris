@@ -49,7 +49,7 @@ export interface SellerRegistrationReceipt {
   operatorKey: `0x${string}`;
   priceUsdc: number;
   freshnessWindowSeconds: number;
-  txHash: string;
+  txHash: string | undefined;
   createdAt: string;
 }
 

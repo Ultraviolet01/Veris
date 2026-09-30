@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Menu, X } from "lucide-react";
-import { DynamicWidget, useIsLoggedIn } from "@dynamic-labs/sdk-react-core";
+import { DynamicWidget, useIsLoggedIn, useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { SiteLogo } from "./site-logo";
 import { UsdcBalanceBadge } from "../UsdcBalanceBadge";
 
@@ -18,6 +18,7 @@ export function SiteNav({ activeView, setActiveView, onOpenSellerStudio }: SiteN
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<CentreTabId>("home");
   const isLoggedIn = useIsLoggedIn();
+  const { setShowAuthFlow } = useDynamicContext();
 
   const centreTabs: { id: CentreTabId; label: string }[] = [
     { id: "home", label: "Home" },
@@ -59,6 +60,7 @@ export function SiteNav({ activeView, setActiveView, onOpenSellerStudio }: SiteN
     return () => window.removeEventListener("scroll", handleScroll);
   }, [activeView]);
 
+
   const handleTabClick = (tabId: CentreTabId) => {
     setActiveTab(tabId);
     setMobileMenuOpen(false);
@@ -69,6 +71,11 @@ export function SiteNav({ activeView, setActiveView, onOpenSellerStudio }: SiteN
       }
       window.scrollTo({ top: 0, behavior: "smooth" });
     } else if (tabId === "data-feeds") {
+      if (!isLoggedIn) {
+        sessionStorage.setItem("veris:pendingNav", "marketplace");
+        setShowAuthFlow(true);
+        return;
+      }
       setActiveView("marketplace");
       window.scrollTo({ top: 0, behavior: "smooth" });
     } else if (tabId === "how-it-works") {

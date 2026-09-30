@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useDynamicContext, useIsLoggedIn } from "@dynamic-labs/sdk-react-core";
 import { createPublicClient, http, formatUnits } from "viem";
 import {
@@ -31,6 +31,7 @@ export function useUsdcBalance(): UsdcBalanceState {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isError, setIsError] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const lastOnChainRawRef = useRef<bigint | null>(null);
 
   // Dynamic context hooks
   const { primaryWallet } = useDynamicContext();
@@ -49,6 +50,7 @@ export function useUsdcBalance(): UsdcBalanceState {
 
   // Sync session balance when wallet changes or on mount
   useEffect(() => {
+    lastOnChainRawRef.current = null;
     const key = getStorageKey();
     const saved = localStorage.getItem(key);
     if (saved !== null) {
@@ -92,11 +94,26 @@ export function useUsdcBalance(): UsdcBalanceState {
       setUsdcRaw(rawUsdc);
       setMonRaw(rawMon);
 
-      // If user holds positive on-chain testnet USDC, sync to on-chain balance
-      if (rawUsdc > 0n) {
-        const onChainUsdc = parseFloat(formatUnits(rawUsdc, 6));
-        setSessionBalance(onChainUsdc);
-        localStorage.setItem(getStorageKey(), onChainUsdc.toFixed(2));
+      const onChainUsdc = parseFloat(formatUnits(rawUsdc, 6));
+      const key = getStorageKey();
+      const existingSaved = localStorage.getItem(key);
+
+      if (lastOnChainRawRef.current === null) {
+        lastOnChainRawRef.current = rawUsdc;
+        // On initial wallet connection: if no prior saved session balance exists, seed from on-chain
+        if (existingSaved === null && rawUsdc > 0n) {
+          setSessionBalance(onChainUsdc);
+          localStorage.setItem(key, onChainUsdc.toFixed(2));
+        }
+      } else if (rawUsdc !== lastOnChainRawRef.current) {
+        // On-chain balance changed externally (e.g. faucet deposit or on-chain transfer)
+        const diffUnits = Number(rawUsdc - lastOnChainRawRef.current) / 1_000_000;
+        lastOnChainRawRef.current = rawUsdc;
+        setSessionBalance((prev) => {
+          const next = Math.max(0, Number((prev + diffUnits).toFixed(4)));
+          localStorage.setItem(key, next.toFixed(2));
+          return next;
+        });
       }
     } catch (err: unknown) {
       console.warn("[Veris useUsdcBalance] Failed to fetch token balances:", err);
@@ -163,13 +180,8 @@ export function useUsdcBalance(): UsdcBalanceState {
   }, []);
 
   const usdcBalance = useMemo(() => {
-    if (usdcRaw > 0n) {
-      const formatted = formatUnits(usdcRaw, 6);
-      const num = parseFloat(formatted);
-      return isNaN(num) ? "0.00" : num.toFixed(2);
-    }
     return sessionBalance.toFixed(2);
-  }, [usdcRaw, sessionBalance]);
+  }, [sessionBalance]);
 
   const monBalance = useMemo(() => {
     if (monRaw === 0n) return "0.000";

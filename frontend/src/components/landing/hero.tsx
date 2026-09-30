@@ -11,14 +11,13 @@ export function Hero({ onExploreMarketplace, onOpenSellerStudio }: HeroProps) {
     <div className="mx-auto mb-24 max-w-4xl text-center">
 
       <h1 className="animate-on-scroll [animation:fadeInUp_0.8s_ease-out_0.2s_both] mb-6 text-5xl font-medium leading-[0.95] tracking-tight text-white md:text-7xl md:leading-none animate">
-        Sell verified data
+        Sell live data to AI agents.
         <br />
-        <span className="text-neutral-500">before it goes stale.</span>
+        <span className="text-neutral-500">Prove it's actually live.</span>
       </h1>
 
       <p className="animate-on-scroll [animation:fadeInUp_0.8s_ease-out_0.3s_both] mx-auto mb-10 max-w-xl text-lg font-light leading-relaxed text-neutral-400 tracking-tight animate">
-        AI agents escrow USDC on Monad. Sellers provide cryptographically bound block proofs.
-        Our SlaEvaluator hook validates freshness atomically — paying on time or refunding instantly.
+        AI agents escrow payment on Monad. Every delivery carries a signed, block-stamped freshness proof, checked automatically, not promised. Stale data means an instant refund. Fresh data means instant payment. No dispute, no support ticket, no trust required.
       </p>
 
       <div className="animate-on-scroll [animation:fadeInUp_0.8s_ease-out_0.4s_both] flex flex-wrap items-center justify-center gap-4 animate">

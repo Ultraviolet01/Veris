@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useBuyerFlow } from "../hooks/useBuyerFlow";
 import { useUsdcBalance } from "../hooks/useUsdcBalance";
 import { useIsLoggedIn, useDynamicContext } from "@dynamic-labs/sdk-react-core";
@@ -72,10 +72,10 @@ export const BuyerModal: React.FC<BuyerModalProps> = ({ dataset, onClose }) => {
   const budgetNumber = parseFloat(customBudget) || 0;
   const isOverCap = budgetNumber > HARD_SPENDING_CAP_USDC;
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     reset();
     onClose();
-  };
+  }, [reset, onClose]);
 
   // Close on Escape key press
   useEffect(() => {
@@ -86,7 +86,7 @@ export const BuyerModal: React.FC<BuyerModalProps> = ({ dataset, onClose }) => {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  }, [handleClose]);
 
   // Lock background body scroll while modal is active
   useEffect(() => {

@@ -446,7 +446,7 @@ export function useBuyerFlow() {
         // ── Step 5: Request Operator Attestation & SlaEvaluator Resolution ───
         console.log(`[Veris Buyer] Requesting operator attestation and on-chain SLA resolution...`);
         let resolveTxHash: string | undefined;
-        let isFreshOutcome = !forceStale;
+        let isFreshOutcome = !isStale;
 
         try {
           const res = await fetch("/api/operator-resolve", {

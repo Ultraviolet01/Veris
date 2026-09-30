@@ -38,6 +38,14 @@ export const DataMarketTerminal: React.FC<DataMarketTerminalProps> = ({ onSelect
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [expandedDatasetName, setExpandedDatasetName] = useState<string | null>(FEATURED_DATASETS[0].name);
   const [copiedName, setCopiedName] = useState<string | null>(null);
+  const [tradeFilter, setTradeFilter] = useState<"all" | "settled" | "refunded" | "open">("all");
+
+  // Placeholder: no live trade data yet — wire real data here when the indexer is ready
+  const trades: GlobalTrade[] = [];
+  const filteredTrades = trades.filter((trade) => {
+    if (tradeFilter === "all") return true;
+    return trade.outcome === tradeFilter;
+  });
 
   const categories = [
     "All",
@@ -59,10 +67,6 @@ export const DataMarketTerminal: React.FC<DataMarketTerminalProps> = ({ onSelect
     return matchesCategory && matchesQuery;
   });
 
-  const filteredTrades = GLOBAL_TRADES.filter((trade) => {
-    if (tradeFilter === "all") return true;
-    return trade.outcome === tradeFilter;
-  });
 
   const copySnippet = (dataset: MarketplaceDataset) => {
     const code = `const result = await veris.query("${dataset.sellerId}", {\n  maxSlaSeconds: ${dataset.freshnessSlaSeconds},\n  priceUsdc: "${dataset.priceUsdc.toFixed(2)}"\n});`;
@@ -369,52 +373,60 @@ export const DataMarketTerminal: React.FC<DataMarketTerminalProps> = ({ onSelect
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5 font-mono">
-                {filteredTrades.map((trade) => (
-                  <tr key={trade.jobId} className="hover:bg-white/[0.02] transition-colors">
-                    <td className="py-3.5 px-4 text-neutral-400 text-xs whitespace-nowrap">
-                      {trade.timeAgo}
-                    </td>
-
-                    <td className="py-3.5 px-3 text-neutral-300 text-xs font-semibold whitespace-nowrap">
-                      #{trade.jobId}
-                    </td>
-
-                    <td className="py-3.5 px-3 text-white text-xs truncate" title={trade.datasetName}>
-                      {trade.datasetName}
-                    </td>
-
-                    <td className="py-3.5 px-3 text-neutral-300 text-xs whitespace-nowrap">
-                      {trade.amountUsdc.toFixed(2)} USDC
-                    </td>
-
-                    <td className="py-3.5 px-3 whitespace-nowrap">
-                      <span
-                        className={
-                          trade.outcome === "settled"
-                            ? "text-emerald-400 font-semibold"
-                            : trade.outcome === "refunded"
-                            ? "text-rose-400 font-semibold"
-                            : "text-amber-400 font-semibold"
-                        }
-                      >
-                        {trade.outcome}
-                      </span>
-                    </td>
-
-                    <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                      <a
-                        href={`${MONAD_TESTNET_EXPLORER}/tx/${trade.txHash}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1.5 text-neutral-400 hover:text-white font-mono text-xs transition-colors"
-                        title={`View Tx on MonadScan: ${trade.txHash}`}
-                      >
-                        <span>{trade.txHash.slice(0, 6)}…{trade.txHash.slice(-4)}</span>
-                        <ExternalLink size={10} className="text-neutral-500 hover:text-neutral-300" />
-                      </a>
+                {filteredTrades.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-10 text-center text-xs text-neutral-500 font-mono">
+                      No trades recorded yet — completed escrow jobs will appear here.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  filteredTrades.map((trade) => (
+                    <tr key={trade.jobId} className="hover:bg-white/[0.02] transition-colors">
+                      <td className="py-3.5 px-4 text-neutral-400 text-xs whitespace-nowrap">
+                        {trade.timeAgo}
+                      </td>
+
+                      <td className="py-3.5 px-3 text-neutral-300 text-xs font-semibold whitespace-nowrap">
+                        #{trade.jobId}
+                      </td>
+
+                      <td className="py-3.5 px-3 text-white text-xs truncate" title={trade.datasetName}>
+                        {trade.datasetName}
+                      </td>
+
+                      <td className="py-3.5 px-3 text-neutral-300 text-xs whitespace-nowrap">
+                        {trade.amountUsdc.toFixed(2)} USDC
+                      </td>
+
+                      <td className="py-3.5 px-3 whitespace-nowrap">
+                        <span
+                          className={
+                            trade.outcome === "settled"
+                              ? "text-emerald-400 font-semibold"
+                              : trade.outcome === "refunded"
+                              ? "text-rose-400 font-semibold"
+                              : "text-amber-400 font-semibold"
+                          }
+                        >
+                          {trade.outcome}
+                        </span>
+                      </td>
+
+                      <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                        <a
+                          href={`${MONAD_TESTNET_EXPLORER}/tx/${trade.txHash}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1.5 text-neutral-400 hover:text-white font-mono text-xs transition-colors"
+                          title={`View Tx on MonadScan: ${trade.txHash}`}
+                        >
+                          <span>{trade.txHash.slice(0, 6)}…{trade.txHash.slice(-4)}</span>
+                          <ExternalLink size={10} className="text-neutral-500 hover:text-neutral-300" />
+                        </a>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
