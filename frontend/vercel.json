@@ -1,6 +1,14 @@
 {
   "framework": "vite",
   "cleanUrls": true,
+  "functions": {
+    "api/purchase.ts": {
+      "maxDuration": 60
+    },
+    "api/claude-parse.ts": {
+      "maxDuration": 30
+    }
+  },
   "rewrites": [
     {
       "source": "/api/(.*)",

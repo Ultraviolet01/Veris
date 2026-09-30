@@ -138,8 +138,19 @@ export function useBuyerFlow() {
           });
 
           if (!res.ok) {
-            const errData = await res.json().catch(() => ({}));
-            throw new Error(errData.error || `Purchase failed with HTTP status ${res.status}`);
+            let errorMsg = `Purchase failed with HTTP status ${res.status}`;
+            try {
+              const text = await res.text();
+              const parsed = JSON.parse(text);
+              if (parsed && parsed.error) {
+                errorMsg = parsed.error;
+              } else if (text && text.trim()) {
+                errorMsg = text.trim();
+              }
+            } catch (_err) {
+              // response was not JSON
+            }
+            throw new Error(errorMsg);
           }
 
           const data = await res.json();
