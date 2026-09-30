@@ -243,6 +243,20 @@ export const SLA_EVALUATOR_ABI = [
     outputs: [],
   },
   {
+    type: "function",
+    name: "feeBps",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    type: "function",
+    name: "treasury",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "address" }],
+  },
+  {
     type: "event",
     name: "JobResolved",
     inputs: [

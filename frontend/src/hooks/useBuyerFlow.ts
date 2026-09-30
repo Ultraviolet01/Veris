@@ -475,6 +475,12 @@ export function useBuyerFlow() {
         setReceipt(completedReceipt);
         setStep("completed");
 
+        window.dispatchEvent(
+          new CustomEvent("veris:job-updated", {
+            detail: completedReceipt,
+          })
+        );
+
         if (!isFreshOutcome) {
           window.dispatchEvent(
             new CustomEvent("veris:balance-update", {

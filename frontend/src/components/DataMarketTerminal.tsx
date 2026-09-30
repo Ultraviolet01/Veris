@@ -3,7 +3,12 @@ import {
   FEATURED_DATASETS,
   type MarketplaceDataset,
   MONAD_TESTNET_EXPLORER,
+  ADDRESSES,
 } from "../lib/contracts";
+import {
+  useProtocolTelemetry,
+  type GlobalTrade,
+} from "../hooks/useProtocolTelemetry";
 import {
   Search,
   ChevronDown,
@@ -14,24 +19,14 @@ import {
   Check,
   ExternalLink,
   Info,
+  Activity,
 } from "lucide-react";
 
 interface DataMarketTerminalProps {
   onSelectDataset: (dataset: MarketplaceDataset) => void;
 }
 
-export interface GlobalTrade {
-  jobId: number;
-  timeAgo: string;
-  datasetName: string;
-  amountUsdc: number;
-  outcome: "open" | "settled" | "refunded";
-  txHash: string;
-  blockNumber: number;
-  promisedSlaSeconds: number;
-  observedDataAgeSeconds?: number;
-  buyerAddress: string;
-}
+export type { GlobalTrade };
 
 export const DataMarketTerminal: React.FC<DataMarketTerminalProps> = ({ onSelectDataset }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
@@ -40,8 +35,8 @@ export const DataMarketTerminal: React.FC<DataMarketTerminalProps> = ({ onSelect
   const [copiedName, setCopiedName] = useState<string | null>(null);
   const [tradeFilter, setTradeFilter] = useState<"all" | "settled" | "refunded" | "open">("all");
 
-  // Placeholder: no live trade data yet — wire real data here when the indexer is ready
-  const trades: GlobalTrade[] = [];
+  const telemetry = useProtocolTelemetry();
+  const trades: GlobalTrade[] = telemetry.recentTrades;
   const filteredTrades = trades.filter((trade) => {
     if (tradeFilter === "all") return true;
     return trade.outcome === tradeFilter;
@@ -138,11 +133,16 @@ export const DataMarketTerminal: React.FC<DataMarketTerminalProps> = ({ onSelect
       <div className="rounded-xl border border-white/10 bg-[#06070a] overflow-hidden shadow-lg">
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 font-mono">
           <div className="px-4 py-3 sm:px-5 sm:py-3.5 flex flex-col justify-center border-b sm:border-b-0 border-r border-white/10">
-            <span className="text-[10px] sm:text-[10.5px] uppercase tracking-wider text-neutral-400 font-medium">
-              24H SETTLED
-            </span>
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] sm:text-[10.5px] uppercase tracking-wider text-neutral-400 font-medium">
+                24H SETTLED
+              </span>
+              {telemetry.isLive && (
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" title="Live sync with ACPCore.sol" />
+              )}
+            </div>
             <span className="text-xs sm:text-sm font-bold text-white mt-1">
-              0.10 USDC (1)
+              {telemetry.settled24hUsdc.toFixed(2)} USDC ({telemetry.settled24hCount})
             </span>
           </div>
 
@@ -151,16 +151,22 @@ export const DataMarketTerminal: React.FC<DataMarketTerminalProps> = ({ onSelect
               24H REFUNDED
             </span>
             <span className="text-xs sm:text-sm font-bold text-white mt-1">
-              0 USDC (0)
+              {telemetry.refunded24hUsdc.toFixed(2)} USDC ({telemetry.refunded24hCount})
             </span>
           </div>
 
           <div className="px-4 py-3 sm:px-5 sm:py-3.5 flex flex-col justify-center border-b md:border-b-0 md:border-r-0 lg:border-r border-white/10">
-            <span className="text-[10px] sm:text-[10.5px] uppercase tracking-wider text-neutral-400 font-medium">
-              REFUND RATE 30D
-            </span>
+            <div className="flex items-center gap-1">
+              <span
+                className="text-[10px] sm:text-[10.5px] uppercase tracking-wider text-neutral-400 font-medium border-b border-dotted border-neutral-500 cursor-help"
+                title={`ReputationRegistry outcome stats: ${telemetry.slaMetCount} met / ${telemetry.slaMissedCount} missed across ${telemetry.totalEvaluatedJobs} evaluated jobs (${(telemetry.reliabilityBps / 100).toFixed(1)}% SLA reliability)`}
+              >
+                REFUND RATE 30D
+              </span>
+              <Info size={11} className="text-neutral-500 hover:text-neutral-300 transition-colors" />
+            </div>
             <span className="text-xs sm:text-sm font-bold text-white mt-1">
-              46%
+              {telemetry.refundRate30d.toFixed(1)}%
             </span>
           </div>
 
@@ -168,23 +174,29 @@ export const DataMarketTerminal: React.FC<DataMarketTerminalProps> = ({ onSelect
             <div className="flex items-center gap-1">
               <span
                 className="text-[10px] sm:text-[10.5px] uppercase tracking-wider text-neutral-400 font-medium border-b border-dotted border-neutral-500 cursor-help"
-                title="Protocol fee collected by VerisTreasury on completed SLA jobs (2% / 200 bps)"
+                title={`Protocol fee collected by VerisTreasury on completed SLA jobs (${telemetry.protocolFeePercent}% / ${telemetry.feeBps} bps) · ${telemetry.treasuryBalanceUsdc.toFixed(3)} USDC accumulated`}
               >
                 PROTOCOL FEES
               </span>
               <Info size={11} className="text-neutral-500 hover:text-neutral-300 transition-colors" />
             </div>
             <span className="text-xs sm:text-sm font-bold text-white mt-1">
-              2%
+              {telemetry.protocolFeePercent}%
             </span>
           </div>
 
           <div className="px-4 py-3 sm:px-5 sm:py-3.5 flex flex-col justify-center">
-            <span className="text-[10px] sm:text-[10.5px] uppercase tracking-wider text-neutral-400 font-medium">
-              INDEX LAG
-            </span>
-            <span className="text-xs sm:text-sm font-bold text-white mt-1">
-              71 blocks
+            <div className="flex items-center gap-1">
+              <span
+                className="text-[10px] sm:text-[10.5px] uppercase tracking-wider text-neutral-400 font-medium"
+                title={`Monad Testnet Block #${telemetry.latestBlock.toLocaleString()} · Sub-second execution`}
+              >
+                INDEX LAG
+              </span>
+            </div>
+            <span className="text-xs sm:text-sm font-bold text-white mt-1 flex items-center gap-1.5">
+              <span>{telemetry.indexLagBlocks} {telemetry.indexLagBlocks === 1 ? "block" : "blocks"}</span>
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" title="Synchronized with Monad chain tip" />
             </span>
           </div>
         </div>
@@ -414,11 +426,19 @@ export const DataMarketTerminal: React.FC<DataMarketTerminalProps> = ({ onSelect
 
                       <td className="py-3.5 px-4 text-right whitespace-nowrap">
                         <a
-                          href={`${MONAD_TESTNET_EXPLORER}/tx/${trade.txHash}`}
+                          href={
+                            trade.txHash.length === 66
+                              ? `${MONAD_TESTNET_EXPLORER}/tx/${trade.txHash}`
+                              : `${MONAD_TESTNET_EXPLORER}/address/${ADDRESSES.acpCore}`
+                          }
                           target="_blank"
                           rel="noreferrer"
                           className="inline-flex items-center gap-1.5 text-neutral-400 hover:text-white font-mono text-xs transition-colors"
-                          title={`View Tx on MonadScan: ${trade.txHash}`}
+                          title={
+                            trade.txHash.length === 66
+                              ? `View Tx on MonadScan: ${trade.txHash}`
+                              : `View Contract on MonadScan: ${trade.txHash}`
+                          }
                         >
                           <span>{trade.txHash.slice(0, 6)}…{trade.txHash.slice(-4)}</span>
                           <ExternalLink size={10} className="text-neutral-500 hover:text-neutral-300" />
