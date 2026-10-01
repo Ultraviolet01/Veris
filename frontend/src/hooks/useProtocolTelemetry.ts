@@ -11,11 +11,16 @@ import {
   FEATURED_DATASETS,
   VERIS_SELLER_ID_BYTES32,
 } from "../lib/contracts";
-import { fetchEnvioJobTxHashMap, VERIFIED_FALLBACK_TX_HASHES } from "../lib/envio";
+import {
+  fetchEnvioJobDataMap,
+  VERIFIED_FALLBACK_JOB_DATA,
+  VERIFIED_FALLBACK_TX_HASHES,
+} from "../lib/envio";
 
 export interface GlobalTrade {
   jobId: number;
   timeAgo: string;
+  timestamp?: number;
   datasetName: string;
   amountUsdc: number;
   outcome: "open" | "settled" | "refunded";
@@ -71,7 +76,8 @@ const DEFAULT_INITIAL_STATE = {
 };
 
 function formatTimeAgo(timestampSeconds: number, nowSeconds: number): string {
-  const diff = Math.max(1, nowSeconds - timestampSeconds);
+  const diff = nowSeconds - timestampSeconds;
+  if (diff <= 10) return "just now";
   if (diff < 60) return `${Math.floor(diff)}s ago`;
   if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
@@ -206,9 +212,9 @@ export function useProtocolTelemetry(): ProtocolTelemetryState {
         });
       }
 
-      // 2. Multicall fetch recent jobs (up to last 55 jobs) & query real on-chain txHashes via Envio HyperSync
-      const [envioTxMap, jobsRes] = await Promise.all([
-        fetchEnvioJobTxHashMap(Math.max(67000000, currentBlockNumber - 50000)).catch(() => ({ ...VERIFIED_FALLBACK_TX_HASHES })),
+      // 2. Multicall fetch recent jobs (up to last 55 jobs) & query real on-chain telemetry (txHash & block timestamp) via Envio HyperSync
+      const [envioDataMap, jobsRes] = await Promise.all([
+        fetchEnvioJobDataMap(Math.max(67000000, currentBlockNumber - 50000)).catch(() => ({ ...VERIFIED_FALLBACK_JOB_DATA })),
         jobCalls.length > 0 ? publicClient.multicall({ contracts: jobCalls }) : Promise.resolve([]),
       ]);
 
@@ -227,9 +233,25 @@ export function useProtocolTelemetry(): ProtocolTelemetryState {
           const job = res.result;
           const budget = Number(formatUnits(job.budget, 6));
           const expiredAt = Number(job.expiredAt);
-          // In buyer router, expiredAt was set to createdAt + 300 or + 3600
-          const estCreatedAt = expiredAt - 300;
-          const is24h = estCreatedAt >= oneDayAgo || expiredAt >= oneDayAgo;
+
+          const envioInfo = envioDataMap[jobId] || VERIFIED_FALLBACK_JOB_DATA[jobId];
+          const realTxHash =
+            envioInfo?.txHash ||
+            VERIFIED_FALLBACK_TX_HASHES[jobId] ||
+            `0x${jobId}acp${Math.abs(expiredAt).toString(16).slice(-8)}`;
+
+          // Real block timestamp from Envio HyperSync index
+          let tradeTimestamp = envioInfo?.timestamp;
+          if (!tradeTimestamp || tradeTimestamp === 0) {
+            // If new job without indexed log yet, determine sensible created timestamp
+            if (expiredAt > nowSeconds) {
+              tradeTimestamp = nowSeconds;
+            } else {
+              tradeTimestamp = Math.max(1, expiredAt - 3600);
+            }
+          }
+
+          const is24h = tradeTimestamp >= oneDayAgo;
 
           let outcome: "open" | "settled" | "refunded" = "open";
           if (job.status === 3) {
@@ -247,19 +269,16 @@ export function useProtocolTelemetry(): ProtocolTelemetryState {
           }
 
           const matchedDs = matchDatasetByBudget(budget);
-          const realTxHash =
-            envioTxMap[jobId] ||
-            VERIFIED_FALLBACK_TX_HASHES[jobId] ||
-            `0x${jobId}acp${Math.abs(expiredAt).toString(16).slice(-8)}`;
 
           parsedTrades.push({
             jobId,
-            timeAgo: formatTimeAgo(estCreatedAt, nowSeconds),
+            timeAgo: formatTimeAgo(tradeTimestamp, nowSeconds),
+            timestamp: tradeTimestamp,
             datasetName: matchedDs.name,
             amountUsdc: budget,
             outcome,
             txHash: realTxHash,
-            blockNumber: Math.max(1, currentBlockNumber - Math.floor((nowSeconds - estCreatedAt) * 2)),
+            blockNumber: envioInfo?.blockNumber || Math.max(1, currentBlockNumber - Math.floor((nowSeconds - tradeTimestamp) * 2)),
             promisedSlaSeconds: matchedDs.freshnessSlaSeconds,
             observedDataAgeSeconds: outcome === "settled" ? 1.2 : outcome === "refunded" ? matchedDs.freshnessSlaSeconds + 4.5 : undefined,
             buyerAddress: job.client,

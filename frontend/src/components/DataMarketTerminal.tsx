@@ -394,7 +394,10 @@ export const DataMarketTerminal: React.FC<DataMarketTerminalProps> = ({ onSelect
                 ) : (
                   filteredTrades.map((trade) => (
                     <tr key={trade.jobId} className="hover:bg-white/[0.02] transition-colors">
-                      <td className="py-3.5 px-4 text-neutral-400 text-xs whitespace-nowrap">
+                      <td
+                        className="py-3.5 px-4 text-neutral-400 text-xs whitespace-nowrap cursor-help"
+                        title={trade.timestamp ? new Date(trade.timestamp * 1000).toLocaleString() : undefined}
+                      >
                         {trade.timeAgo}
                       </td>
 

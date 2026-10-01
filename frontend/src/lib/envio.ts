@@ -92,31 +92,105 @@ export async function fetchEnvioHyperSyncHeight(chain: string | number = 'monad-
   return Number(data.height);
 }
 
-export const VERIFIED_FALLBACK_TX_HASHES: Record<number, string> = {
-  67: '0x2bf1cb9c0ae716bff71b55c01d1ad8cdce83b10f39ff825df98271cc000dbf78',
-  66: '0x7257ab03de8d48e7487d0a44be3c211d7c41132d17967a0ebd20dfd9e4748cda',
-  65: '0x95be30d61ce2723bb683c7e1333adad899f425567af90ce5a1e1881c6a86be12',
-  64: '0xf83315d0185363126817fa8203806768cbe9a8f59a38c51a0359efa7c7f898f2',
-  63: '0x76f78124eecf65c51cb0634d0ad49d22f747bd5c002140b943e68381194c4de1',
-  62: '0x6dddbbc321f6736f9c1f34103b260b6c2ced73d9f038dcc1cff871c4e12db8b8',
-  61: '0x518691023cbe73b281e8ec1e541599a97e1dc5b621852031913f781f5ba63a72',
-  60: '0x6e6b8c0958aaced63b6f06fca930a0dbcb76c0f6542ea479c1fd0c0359212890',
-  59: '0x4b54bccec5fd007f674cd037f6c233a34640980b21f01cdccc687bee6dbc284d',
-  58: '0x3ae453543cf1cdbdfc248d1d8220356fcb5a1a37c1d38ecdae5214a7aa521ba5',
-  57: '0xc8ad301ef6fdbd6740c54d8ffce440546c140c5e0c505a2e10a8d0a6befada43',
-  56: '0x883a1a21c3e0924a69095f6200f545584d3844fae12a2f98bc7e79f4e36a55bf',
-  55: '0xabaf97b0ba170c8ec0a6fa9898de3ec59a5486c461a728471437ea618d494356',
-  54: '0x782f95467126ac88e601dc6f813e2369050f2d7574a81c9eee8a396158abaa2a',
-  53: '0xceeb369aa99f3ccc67e76abc635b9131d9cd25addf576df1e066bfd8cb929e9f',
-  52: '0xccde253e0815fa7892a99d6db3bb8f0920c0174921149ddc8ce3982141f01523',
+export interface EnvioJobTelemetry {
+  txHash: string;
+  blockNumber: number;
+  timestamp: number;
+}
+
+export const VERIFIED_FALLBACK_JOB_DATA: Record<number, EnvioJobTelemetry> = {
+  67: {
+    txHash: '0x2bf1cb9c0ae716bff71b55c01d1ad8cdce83b10f39ff825df98271cc000dbf78',
+    blockNumber: 67098932,
+    timestamp: 1790809865,
+  },
+  66: {
+    txHash: '0x7257ab03de8d48e7487d0a44be3c211d7c41132d17967a0ebd20dfd9e4748cda',
+    blockNumber: 67043966,
+    timestamp: 1790793262,
+  },
+  65: {
+    txHash: '0x95be30d61ce2723bb683c7e1333adad899f425567af90ce5a1e1881c6a86be12',
+    blockNumber: 67043445,
+    timestamp: 1790793105,
+  },
+  64: {
+    txHash: '0xf83315d0185363126817fa8203806768cbe9a8f59a38c51a0359efa7c7f898f2',
+    blockNumber: 67042774,
+    timestamp: 1790792902,
+  },
+  63: {
+    txHash: '0x76f78124eecf65c51cb0634d0ad49d22f747bd5c002140b943e68381194c4de1',
+    blockNumber: 67041954,
+    timestamp: 1790792654,
+  },
+  62: {
+    txHash: '0x6dddbbc321f6736f9c1f34103b260b6c2ced73d9f038dcc1cff871c4e12db8b8',
+    blockNumber: 67041426,
+    timestamp: 1790792493,
+  },
+  61: {
+    txHash: '0x518691023cbe73b281e8ec1e541599a97e1dc5b621852031913f781f5ba63a72',
+    blockNumber: 67039071,
+    timestamp: 1790791775,
+  },
+  60: {
+    txHash: '0x6e6b8c0958aaced63b6f06fca930a0dbcb76c0f6542ea479c1fd0c0359212890',
+    blockNumber: 67034198,
+    timestamp: 1790790303,
+  },
+  59: {
+    txHash: '0x4b54bccec5fd007f674cd037f6c233a34640980b21f01cdccc687bee6dbc284d',
+    blockNumber: 67033690,
+    timestamp: 1790790150,
+  },
+  58: {
+    txHash: '0x3ae453543cf1cdbdfc248d1d8220356fcb5a1a37c1d38ecdae5214a7aa521ba5',
+    blockNumber: 67032043,
+    timestamp: 1790789652,
+  },
+  57: {
+    txHash: '0xc8ad301ef6fdbd6740c54d8ffce440546c140c5e0c505a2e10a8d0a6befada43',
+    blockNumber: 67027570,
+    timestamp: 1790788301,
+  },
+  56: {
+    txHash: '0x883a1a21c3e0924a69095f6200f545584d3844fae12a2f98bc7e79f4e36a55bf',
+    blockNumber: 67023685,
+    timestamp: 1790787127,
+  },
+  55: {
+    txHash: '0xabaf97b0ba170c8ec0a6fa9898de3ec59a5486c461a728471437ea618d494356',
+    blockNumber: 67023504,
+    timestamp: 1790787073,
+  },
+  54: {
+    txHash: '0x782f95467126ac88e601dc6f813e2369050f2d7574a81c9eee8a396158abaa2a',
+    blockNumber: 67022026,
+    timestamp: 1790786626,
+  },
+  53: {
+    txHash: '0xceeb369aa99f3ccc67e76abc635b9131d9cd25addf576df1e066bfd8cb929e9f',
+    blockNumber: 67019788,
+    timestamp: 1790785950,
+  },
+  52: {
+    txHash: '0xccde253e0815fa7892a99d6db3bb8f0920c0174921149ddc8ce3982141f01523',
+    blockNumber: 67000494,
+    timestamp: 1790780119,
+  },
 };
 
+export const VERIFIED_FALLBACK_TX_HASHES: Record<number, string> = Object.fromEntries(
+  Object.entries(VERIFIED_FALLBACK_JOB_DATA).map(([id, data]) => [Number(id), data.txHash])
+);
+
 /**
- * Query Envio HyperSync for real on-chain transaction hashes for ACPCore escrow jobs.
- * Maps jobId -> real on-chain transaction hash.
+ * Query Envio HyperSync for real on-chain transaction hashes and block timestamps for ACPCore escrow jobs.
+ * Maps jobId -> { txHash, blockNumber, timestamp }.
  */
-export async function fetchEnvioJobTxHashMap(fromBlock: number = 67000000): Promise<Record<number, string>> {
-  const map: Record<number, string> = { ...VERIFIED_FALLBACK_TX_HASHES };
+export async function fetchEnvioJobDataMap(fromBlock: number = 67000000): Promise<Record<number, EnvioJobTelemetry>> {
+  const map: Record<number, EnvioJobTelemetry> = { ...VERIFIED_FALLBACK_JOB_DATA };
   try {
     const res = await fetch('https://monad-testnet.hypersync.xyz/query', {
       method: 'POST',
@@ -129,6 +203,7 @@ export async function fetchEnvioJobTxHashMap(fromBlock: number = 67000000): Prom
         logs: [{ address: ['0x5898d78653C1f691431A045580c1b1D6aFC28AF9'] }],
         field_selection: {
           log: ['block_number', 'transaction_hash', 'topic0', 'topic1'],
+          block: ['number', 'timestamp'],
         },
       }),
       signal: AbortSignal.timeout(3500),
@@ -136,21 +211,44 @@ export async function fetchEnvioJobTxHashMap(fromBlock: number = 67000000): Prom
 
     if (res.ok) {
       const json = await res.json();
+      const blockTimestampMap: Record<number, number> = {};
+      const allBlocks = json.data?.flatMap((b: any) => b.blocks || []) || [];
+      for (const blk of allBlocks) {
+        if (blk.number != null && blk.timestamp != null) {
+          blockTimestampMap[blk.number] =
+            typeof blk.timestamp === 'string' ? parseInt(blk.timestamp, 16) : blk.timestamp;
+        }
+      }
+
       const allLogs = json.data?.flatMap((b: any) => b.logs || []) || [];
       for (const l of allLogs) {
         if (l.topic1 && l.transaction_hash) {
           const jobId = parseInt(l.topic1, 16);
           if (!isNaN(jobId) && l.transaction_hash.startsWith('0x') && l.transaction_hash.length === 66) {
-            map[jobId] = l.transaction_hash;
+            const blkTs = blockTimestampMap[l.block_number];
+            map[jobId] = {
+              txHash: l.transaction_hash,
+              blockNumber: l.block_number,
+              timestamp: blkTs || map[jobId]?.timestamp || 0,
+            };
           }
         }
       }
     }
   } catch (err) {
-    console.warn('[EnvioHyperSync] Failed to fetch job txHashes:', err);
+    console.warn('[EnvioHyperSync] Failed to fetch job telemetry:', err);
   }
 
   return map;
+}
+
+/**
+ * Query Envio HyperSync for real on-chain transaction hashes for ACPCore escrow jobs.
+ * Maps jobId -> real on-chain transaction hash.
+ */
+export async function fetchEnvioJobTxHashMap(fromBlock: number = 67000000): Promise<Record<number, string>> {
+  const dataMap = await fetchEnvioJobDataMap(fromBlock);
+  return Object.fromEntries(Object.entries(dataMap).map(([id, d]) => [Number(id), d.txHash]));
 }
 
 export interface EnvioIndexerAnalytics {
