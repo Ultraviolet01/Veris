@@ -443,8 +443,21 @@ export const AgentChatbot: React.FC = () => {
         setIsLoading(false);
         return;
       }
-      if (lower.includes("simulate") && (lower.includes("breach") || lower.includes("refund") || lower.includes("fail") || lower.includes("stale"))) {
-        handleSend(`fail ${lower.includes("aave") ? "aave" : lower.includes("uniswap") ? "uniswap" : "kuru"}`);
+      const isRefundIntent =
+        (lower.includes("simulate") || lower.includes("test") || lower.includes("trigger") || lower.includes("want a query") || lower.includes("give") || lower.includes("show me")) &&
+        (lower.includes("breach") || lower.includes("refund") || lower.includes("fail") || lower.includes("stale") || lower.includes("rejected"));
+
+      if (isRefundIntent) {
+        let target = "aave";
+        if (lower.includes("kuru") || lower.includes("clob")) target = "kuru";
+        else if (lower.includes("uniswap") || lower.includes("twap")) target = "uniswap";
+        else if (lower.includes("compound") || lower.includes("comet")) target = "compound";
+        else if (lower.includes("curve") || lower.includes("3pool")) target = "curve";
+        else if (lower.includes("perpl") || lower.includes("futures")) target = "perpl";
+        else if (lower.includes("opensea") || lower.includes("seaport")) target = "opensea";
+        else if (lower.includes("monad") || lower.includes("sequencer")) target = "monad";
+
+        handleSend(`fail ${target}`);
         setIsLoading(false);
         return;
       }
