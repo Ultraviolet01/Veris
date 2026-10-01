@@ -96,88 +96,135 @@ export interface EnvioJobTelemetry {
   txHash: string;
   blockNumber: number;
   timestamp: number;
+  datasetName?: string;
 }
 
 export const VERIFIED_FALLBACK_JOB_DATA: Record<number, EnvioJobTelemetry> = {
+  72: {
+    txHash: '0x10a55378a8863a493c89322c2caa5c710c2469040ff3cdcbea548e0f42e32626',
+    blockNumber: 109465092,
+    timestamp: 1790814525,
+    datasetName: 'Kuru CLOB On-Chain Order Book Depth',
+  },
+  71: {
+    txHash: '0xafab0ac53bb4b813caffd4635de2d92ec00210fcc54b63f6d7affc5d9d22e8bb',
+    blockNumber: 109464847,
+    timestamp: 1790814451,
+    datasetName: 'Kuru CLOB On-Chain Order Book Depth',
+  },
+  70: {
+    txHash: '0xa56c8bb3f58d5f51224e0a9d2c96cdd6bf0a8b169759d74548f166032614e1a4',
+    blockNumber: 67112000,
+    timestamp: 1790814057,
+    datasetName: 'Aave V3 Lending Rates & Reserve Liquidity',
+  },
+  69: {
+    txHash: '0x2de66f509046072b0caea2f4744dac1d6df7cda38920dbe81cf34469ec979825',
+    blockNumber: 109463128,
+    timestamp: 1790813933,
+    datasetName: 'Kuru CLOB On-Chain Order Book Depth',
+  },
+  68: {
+    txHash: '0x2939b16b9dc141f749dbbe68ead7aa3a56a9e365060c59d8da5206f914621623',
+    blockNumber: 67110698,
+    timestamp: 1790813420,
+    datasetName: 'Kuru CLOB On-Chain Order Book Depth',
+  },
   67: {
     txHash: '0x2bf1cb9c0ae716bff71b55c01d1ad8cdce83b10f39ff825df98271cc000dbf78',
     blockNumber: 67098932,
     timestamp: 1790809865,
+    datasetName: 'Aave V3 Lending Rates & Reserve Liquidity',
   },
   66: {
     txHash: '0x7257ab03de8d48e7487d0a44be3c211d7c41132d17967a0ebd20dfd9e4748cda',
     blockNumber: 67043966,
     timestamp: 1790793262,
+    datasetName: 'OpenSea Seaport 1.6 Protocol Trades & Floor Bids',
   },
   65: {
     txHash: '0x95be30d61ce2723bb683c7e1333adad899f425567af90ce5a1e1881c6a86be12',
     blockNumber: 67043445,
     timestamp: 1790793105,
+    datasetName: 'Kuru CLOB On-Chain Order Book Depth',
   },
   64: {
     txHash: '0xf83315d0185363126817fa8203806768cbe9a8f59a38c51a0359efa7c7f898f2',
     blockNumber: 67042774,
     timestamp: 1790792902,
+    datasetName: 'Perpl Perpetual Futures Mark Price & Funding Velocity',
   },
   63: {
     txHash: '0x76f78124eecf65c51cb0634d0ad49d22f747bd5c002140b943e68381194c4de1',
     blockNumber: 67041954,
     timestamp: 1790792654,
+    datasetName: 'Aave V3 Lending Rates & Reserve Liquidity',
   },
   62: {
     txHash: '0x6dddbbc321f6736f9c1f34103b260b6c2ced73d9f038dcc1cff871c4e12db8b8',
     blockNumber: 67041426,
     timestamp: 1790792493,
+    datasetName: 'OpenSea Seaport 1.6 Protocol Trades & Floor Bids',
   },
   61: {
     txHash: '0x518691023cbe73b281e8ec1e541599a97e1dc5b621852031913f781f5ba63a72',
     blockNumber: 67039071,
     timestamp: 1790791775,
+    datasetName: 'OpenSea Seaport 1.6 Protocol Trades & Floor Bids',
   },
   60: {
     txHash: '0x6e6b8c0958aaced63b6f06fca930a0dbcb76c0f6542ea479c1fd0c0359212890',
     blockNumber: 67034198,
     timestamp: 1790790303,
+    datasetName: 'Uniswap V3 High-Frequency Pool TWAP & Ticks',
   },
   59: {
     txHash: '0x4b54bccec5fd007f674cd037f6c233a34640980b21f01cdccc687bee6dbc284d',
     blockNumber: 67033690,
     timestamp: 1790790150,
+    datasetName: 'OpenSea Seaport 1.6 Protocol Trades & Floor Bids',
   },
   58: {
     txHash: '0x3ae453543cf1cdbdfc248d1d8220356fcb5a1a37c1d38ecdae5214a7aa521ba5',
     blockNumber: 67032043,
     timestamp: 1790789652,
+    datasetName: 'Aave V3 Lending Rates & Reserve Liquidity',
   },
   57: {
     txHash: '0xc8ad301ef6fdbd6740c54d8ffce440546c140c5e0c505a2e10a8d0a6befada43',
     blockNumber: 67027570,
     timestamp: 1790788301,
+    datasetName: 'Uniswap V3 High-Frequency Pool TWAP & Ticks',
   },
   56: {
     txHash: '0x883a1a21c3e0924a69095f6200f545584d3844fae12a2f98bc7e79f4e36a55bf',
     blockNumber: 67023685,
     timestamp: 1790787127,
+    datasetName: 'Uniswap V3 High-Frequency Pool TWAP & Ticks',
   },
   55: {
     txHash: '0xabaf97b0ba170c8ec0a6fa9898de3ec59a5486c461a728471437ea618d494356',
     blockNumber: 67023504,
     timestamp: 1790787073,
+    datasetName: 'Aave V3 Lending Rates & Reserve Liquidity',
   },
   54: {
     txHash: '0x782f95467126ac88e601dc6f813e2369050f2d7574a81c9eee8a396158abaa2a',
     blockNumber: 67022026,
     timestamp: 1790786626,
+    datasetName: 'Kuru CLOB On-Chain Order Book Depth',
   },
   53: {
     txHash: '0xceeb369aa99f3ccc67e76abc635b9131d9cd25addf576df1e066bfd8cb929e9f',
     blockNumber: 67019788,
     timestamp: 1790785950,
+    datasetName: 'Perpl Perpetual Futures Mark Price & Funding Velocity',
   },
   52: {
     txHash: '0xccde253e0815fa7892a99d6db3bb8f0920c0174921149ddc8ce3982141f01523',
     blockNumber: 67000494,
     timestamp: 1790780119,
+    datasetName: 'Uniswap V3 High-Frequency Pool TWAP & Ticks',
   },
 };
 

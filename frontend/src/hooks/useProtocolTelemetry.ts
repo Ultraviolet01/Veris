@@ -269,12 +269,28 @@ export function useProtocolTelemetry(): ProtocolTelemetryState {
           }
 
           const matchedDs = matchDatasetByBudget(budget);
+          let resolvedDatasetName =
+            envioInfo?.datasetName ||
+            VERIFIED_FALLBACK_JOB_DATA[jobId]?.datasetName;
+
+          if (!resolvedDatasetName) {
+            try {
+              const savedMap = JSON.parse(localStorage.getItem("veris_job_datasets_map") || "{}");
+              if (savedMap[jobId]) resolvedDatasetName = savedMap[jobId];
+            } catch {
+              // ignore
+            }
+          }
+
+          if (!resolvedDatasetName) {
+            resolvedDatasetName = matchedDs.name;
+          }
 
           parsedTrades.push({
             jobId,
             timeAgo: formatTimeAgo(tradeTimestamp, nowSeconds),
             timestamp: tradeTimestamp,
-            datasetName: matchedDs.name,
+            datasetName: resolvedDatasetName,
             amountUsdc: budget,
             outcome,
             txHash: realTxHash,

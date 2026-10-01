@@ -4,6 +4,7 @@ import {
   http,
   keccak256,
   encodeAbiParameters,
+  decodeAbiParameters,
   stringToBytes,
   defineChain,
   parseAbi,
@@ -125,15 +126,32 @@ export default async function handler(req: any, res: any) {
 
     const rc = await publicClient.waitForTransactionReceipt({ hash: txHash });
 
+    let actualAccepted = isFresh;
+    let actualAgeSeconds = ageSeconds;
+
+    for (const log of rc.logs) {
+      if (log.topics[0] === '0x949a36dd6d3f85cf067b6aeb5356d83ac51e936dba1ffdb86a787fa8feb50cd8') {
+        try {
+          const decoded = decodeAbiParameters([{ type: 'uint256' }, { type: 'bool' }], log.data);
+          actualAgeSeconds = Number(decoded[0]);
+          actualAccepted = Boolean(decoded[1]);
+        } catch {}
+      } else if (log.topics[0] === '0x8d6c7b02bcf056b9413e5f62477f7b6b368c64b0ed46770d11ed88b6fdf6e7e8') {
+        actualAccepted = false;
+      } else if (log.topics[0] === '0xa0bdb89e29b36772d119ac26ecdc394f6eb63e91dba175c8b76507f5fa7bd4e9') {
+        actualAccepted = true;
+      }
+    }
+
     return res.status(200).json({
       success: rc.status === 'success',
       txHash,
       jobId: String(jobId),
-      accepted: isFresh,
-      ageSeconds,
+      accepted: actualAccepted,
+      ageSeconds: actualAgeSeconds,
       gasUsed: rc.gasUsed.toString(),
       resolvedAt: new Date().toLocaleTimeString(),
-      status: isFresh ? 'COMPLETED (Seller Paid 98% · VerisTreasury 2%)' : 'REJECTED (Buyer 100% Refunded)',
+      status: actualAccepted ? 'COMPLETED (Seller Paid 98% · VerisTreasury 2%)' : 'REJECTED (Buyer 100% Refunded)',
       payload: livePayload,
       realPayload: livePayload,
     });

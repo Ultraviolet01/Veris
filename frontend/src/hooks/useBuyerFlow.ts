@@ -198,6 +198,12 @@ export function useBuyerFlow() {
           setReceipt(finalReceipt);
           setStep("completed");
 
+          try {
+            const saved = JSON.parse(localStorage.getItem("veris_job_datasets_map") || "{}");
+            saved[data.jobId] = dataset.name;
+            localStorage.setItem("veris_job_datasets_map", JSON.stringify(saved));
+          } catch {}
+
           // Dispatch real-time balance update
           if (data.verdict === "APPROVED" || data.status === "SLA Met" || data.outcome === "settled") {
             window.dispatchEvent(
@@ -422,6 +428,7 @@ export function useBuyerFlow() {
         console.log(`[Veris Buyer] Requesting operator attestation and on-chain SLA resolution...`);
         let resolveTxHash: string | undefined;
         let isFreshOutcome = !isStale;
+        let resolvedAgeOnChain: number | undefined;
 
         try {
           const res = await fetch("/api/purchase", {
@@ -442,17 +449,39 @@ export function useBuyerFlow() {
           if (res.ok) {
             const data = await res.json();
             resolveTxHash = data.txHash;
-            isFreshOutcome = Boolean(data.accepted);
-            console.log(`[Veris Buyer] SlaEvaluator resolved on Monad Testnet! Tx: ${resolveTxHash}`);
+            if (typeof data.accepted === "boolean") {
+              isFreshOutcome = data.accepted;
+            }
+            if (data.dataAgeSeconds != null) {
+              resolvedAgeOnChain = Number(data.dataAgeSeconds);
+            }
+            console.log(`[Veris Buyer] SlaEvaluator resolved on Monad Testnet! Tx: ${resolveTxHash}, accepted: ${isFreshOutcome}`);
           }
         } catch (resolveErr) {
           console.warn("[Veris Buyer] Operator resolution service call warning:", resolveErr);
         }
 
+        // Safeguard: read definitive on-chain job status directly from ACPCore contract
+        try {
+          const jobOnChain = (await publicClient.readContract({
+            address: ADDRESSES.acpCore,
+            abi: ACP_CORE_ABI,
+            functionName: "getJob",
+            args: [validJobId],
+          } as any)) as { status: number };
+          if (jobOnChain && jobOnChain.status === 4) {
+            isFreshOutcome = false;
+          } else if (jobOnChain && jobOnChain.status === 3) {
+            isFreshOutcome = true;
+          }
+        } catch (chainReadErr) {
+          console.warn("[Veris Buyer] Could not read ACPCore job status:", chainReadErr);
+        }
+
         const finalStatus = isFreshOutcome ? "SLA Met" : "Refunded";
         const verdict = isFreshOutcome ? "APPROVED" : "REFUNDED";
         const outcome = isFreshOutcome ? "settled" : "refunded";
-        const finalAge = isFreshOutcome ? safeAge : dataset.freshnessSlaSeconds + 4.8;
+        const finalAge = resolvedAgeOnChain != null ? resolvedAgeOnChain : (isFreshOutcome ? safeAge : dataset.freshnessSlaSeconds + 4.8);
         const refundReason = !isFreshOutcome
           ? `SlaNotMet: observed data age (${finalAge.toFixed(1)}s) > ${dataset.freshnessSlaSeconds}.0s SLA window`
           : undefined;
@@ -474,6 +503,12 @@ export function useBuyerFlow() {
 
         setReceipt(completedReceipt);
         setStep("completed");
+
+        try {
+          const saved = JSON.parse(localStorage.getItem("veris_job_datasets_map") || "{}");
+          saved[validJobId.toString()] = dataset.name;
+          localStorage.setItem("veris_job_datasets_map", JSON.stringify(saved));
+        } catch {}
 
         window.dispatchEvent(
           new CustomEvent("veris:job-updated", {
