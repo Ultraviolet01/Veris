@@ -37,6 +37,7 @@ import {
   type DeliveredPayload,
 } from "../lib/dataPayloads";
 import { fetchRealLivePayload } from "../lib/realDataFetcher";
+import { markRefundClaimed, isRefundClaimed } from "./usePendingRefunds";
 
 export type BuyerStep =
   | "idle"
@@ -46,6 +47,7 @@ export type BuyerStep =
   | "setting_budget"
   | "funding_job"
   | "job_active"
+  | "claiming_refund"
   | "completed"
   | "error";
 
@@ -56,6 +58,8 @@ export interface JobExecutionReceipt {
   txSetBudget?: string;
   txFund?: string;
   txResolve?: string;
+  txClaimRefund?: string;
+  isRefundClaimed?: boolean;
   budgetUsdc: number;
   datasetName: string;
   freshnessSlaSeconds: number;
@@ -214,7 +218,7 @@ export function useBuyerFlow() {
           } else if (data.verdict === "REFUNDED" || data.outcome === "refunded") {
             window.dispatchEvent(
               new CustomEvent("veris:balance-update", {
-                detail: { action: "refund", amount: 0, jobId: data.jobId },
+                detail: { action: "refund", amount: budget, jobId: data.jobId },
               })
             );
           }
@@ -478,6 +482,35 @@ export function useBuyerFlow() {
           console.warn("[Veris Buyer] Could not read ACPCore job status:", chainReadErr);
         }
 
+        let txClaimRefund: string | undefined;
+        let isRefundClaimed = false;
+
+        // Auto-claim refund from VerisBuyerRouter into the buyer's wallet
+        if (!isFreshOutcome && walletClient && walletClient.account) {
+          try {
+            console.log(`[Veris Buyer] Triggering 1-Click claimRefund for Job #${validJobId}...`);
+            setStep("claiming_refund");
+            const claimTxHash = await (walletClient.sendTransaction as any)({
+              account: walletClient.account,
+              chain: walletClient.chain,
+              to: ADDRESSES.buyerRouter,
+              data: encodeFunctionData({
+                abi: BUYER_ROUTER_ABI,
+                functionName: "claimRefund",
+                args: [validJobId],
+              } as any),
+            });
+            console.log(`[Veris Buyer] claimRefund submitted:`, claimTxHash);
+            await publicClient.waitForTransactionReceipt({ hash: claimTxHash as `0x${string}` });
+            txClaimRefund = claimTxHash;
+            isRefundClaimed = true;
+            markRefundClaimed(validJobId.toString());
+            console.log(`[Veris Buyer] 100% refund (${budget} USDC) returned to wallet on-chain!`);
+          } catch (claimErr) {
+            console.warn("[Veris Buyer] Auto claimRefund deferred to user 1-click action:", claimErr);
+          }
+        }
+
         const finalStatus = isFreshOutcome ? "SLA Met" : "Refunded";
         const verdict = isFreshOutcome ? "APPROVED" : "REFUNDED";
         const outcome = isFreshOutcome ? "settled" : "refunded";
@@ -489,6 +522,8 @@ export function useBuyerFlow() {
         const completedReceipt: JobExecutionReceipt = {
           ...activeReceipt,
           txResolve: resolveTxHash,
+          txClaimRefund,
+          isRefundClaimed,
           status: finalStatus,
           verdict,
           outcome,
@@ -519,7 +554,7 @@ export function useBuyerFlow() {
         if (!isFreshOutcome) {
           window.dispatchEvent(
             new CustomEvent("veris:balance-update", {
-              detail: { action: "refund", amount: budget },
+              detail: { action: "refund", amount: budget, jobId: validJobId.toString() },
             })
           );
         }
@@ -537,11 +572,53 @@ export function useBuyerFlow() {
     [primaryWallet]
   );
 
+  const claimRefundForJob = useCallback(
+    async (jobIdStr: string, budgetAmount?: number): Promise<string> => {
+      if (!primaryWallet) throw new Error("No connected wallet");
+      const walletClient = await (
+        primaryWallet as never as {
+          getWalletClient: (chainId?: string) => Promise<WalletClient>;
+        }
+      ).getWalletClient(String(MONAD_TESTNET_CHAIN_ID));
+      if (!walletClient || !walletClient.account) throw new Error("Wallet account not accessible");
+
+      const publicClient = createPublicClient({ transport: http(MONAD_TESTNET_RPC) });
+      const jobId = BigInt(jobIdStr);
+
+      const txHash = await (walletClient.sendTransaction as any)({
+        account: walletClient.account,
+        chain: walletClient.chain,
+        to: ADDRESSES.buyerRouter,
+        data: encodeFunctionData({
+          abi: BUYER_ROUTER_ABI,
+          functionName: "claimRefund",
+          args: [jobId],
+        } as any),
+      });
+
+      await publicClient.waitForTransactionReceipt({ hash: txHash as `0x${string}` });
+      markRefundClaimed(jobIdStr);
+
+      if (budgetAmount) {
+        window.dispatchEvent(
+          new CustomEvent("veris:balance-update", {
+            detail: { action: "refund", amount: budgetAmount, jobId: jobIdStr },
+          })
+        );
+      }
+
+      setReceipt((prev) => (prev && prev.jobId === jobIdStr ? { ...prev, isRefundClaimed: true, txClaimRefund: txHash } : prev));
+      return txHash;
+    },
+    [primaryWallet]
+  );
+
   return {
     step,
     error,
     receipt,
     executeJobPurchase,
+    claimRefundForJob,
     reset: () => {
       setStep("idle");
       setError(null);

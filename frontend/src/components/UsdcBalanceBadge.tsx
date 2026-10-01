@@ -1,23 +1,17 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useUsdcBalance } from "../hooks/useUsdcBalance";
-import { ADDRESSES, MONAD_TESTNET_EXPLORER } from "../lib/contracts";
+import { usePendingRefunds } from "../hooks/usePendingRefunds";
 import {
   Coins,
   RefreshCw,
-  ExternalLink,
-  Copy,
-  Check,
-  Droplets,
-  Info,
   ChevronDown,
-  PlusCircle,
+  RotateCcw,
 } from "lucide-react";
 
 export const UsdcBalanceBadge: React.FC = () => {
-  const { usdcBalance, monBalance, isLoading, refetch, addFunds, walletAddress } = useUsdcBalance();
+  const { usdcBalance, monBalance, isLoading, refetch, walletAddress } = useUsdcBalance();
+  const { pendingRefunds, totalPendingUsdc, claimAllRefunds, isClaiming: isClaimingRefunds } = usePendingRefunds();
   const [isOpen, setIsOpen] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [addedSuccess, setAddedSuccess] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown on click outside
@@ -32,13 +26,6 @@ export const UsdcBalanceBadge: React.FC = () => {
     }
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isOpen]);
-
-  const handleCopyContract = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    navigator.clipboard.writeText(ADDRESSES.paymentToken);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
 
   const handleRefresh = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -64,6 +51,14 @@ export const UsdcBalanceBadge: React.FC = () => {
         <div className="flex items-center gap-1.5 font-mono tracking-tight">
           <span className="font-bold text-white text-xs">{usdcBalance}</span>
           <span className="text-[10px] font-semibold text-cyan-400">USDC</span>
+          {totalPendingUsdc > 0 && (
+            <span
+              className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-500/25 border border-amber-500/50 text-[9.5px] font-bold text-amber-300 animate-pulse ml-0.5"
+              title={`${totalPendingUsdc.toFixed(2)} USDC in pending SLA refunds available to withdraw`}
+            >
+              +{totalPendingUsdc.toFixed(2)} refund
+            </span>
+          )}
         </div>
 
         {/* Refresh spinner */}
@@ -105,6 +100,50 @@ export const UsdcBalanceBadge: React.FC = () => {
             </button>
           </div>
 
+          {/* Pending Escrow Refunds Banner */}
+          {totalPendingUsdc > 0 && (
+            <div className="p-3 rounded-xl bg-gradient-to-br from-amber-500/15 to-orange-500/10 border border-amber-500/40 text-xs space-y-2 mb-3 shadow-lg shadow-amber-950/30">
+              <div className="flex items-center justify-between font-bold text-amber-300">
+                <span className="flex items-center gap-1.5 font-mono">
+                  <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
+                  Unclaimed SLA Refunds
+                </span>
+                <span className="font-mono text-xs px-2 py-0.5 rounded bg-amber-500/20 border border-amber-500/40 text-amber-200">
+                  +{totalPendingUsdc.toFixed(2)} USDC
+                </span>
+              </div>
+              <p className="text-[10.5px] leading-relaxed text-zinc-300 font-sans">
+                You have <strong>{pendingRefunds.length}</strong> refunded escrow job{pendingRefunds.length > 1 ? "s" : ""} waiting in the Veris Router from SLA breach tests.
+              </p>
+              <button
+                type="button"
+                onClick={async (e) => {
+                  e.stopPropagation();
+                  try {
+                    await claimAllRefunds();
+                    refetch();
+                  } catch (err) {
+                    console.error("[UsdcBalanceBadge] Claim all error:", err);
+                  }
+                }}
+                disabled={isClaimingRefunds}
+                className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs transition-all cursor-pointer shadow-md disabled:opacity-50"
+              >
+                {isClaimingRefunds ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Withdrawing All Refunds...</span>
+                  </>
+                ) : (
+                  <>
+                    <Coins className="w-3.5 h-3.5" />
+                    <span>Withdraw All ({totalPendingUsdc.toFixed(2)} USDC)</span>
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+
           {/* Balances List */}
           <div className="space-y-2 mb-3">
             {/* USDC Row */}
@@ -143,82 +182,6 @@ export const UsdcBalanceBadge: React.FC = () => {
                 </div>
                 <div className="text-[10px] text-zinc-500">Gas & Tx Fees</div>
               </div>
-            </div>
-          </div>
-
-          {/* Note on Dynamic */}
-          <div className="p-2.5 rounded-xl bg-white/[0.02] border border-white/5 text-[11px] text-zinc-400 space-y-1 mb-3">
-            <div className="flex items-start gap-1.5 text-zinc-300 font-medium">
-              <Info className="w-3.5 h-3.5 text-purple-400 shrink-0 mt-0.5" />
-              <span>Why Dynamic only shows MON:</span>
-            </div>
-            <p className="text-[10.5px] leading-relaxed text-zinc-400">
-              Dynamic&apos;s embedded wallet only queries native gas (<code className="text-purple-300">MON</code>) on custom EVM testnets. Veris tracks your official <code className="text-cyan-300">USDC</code> payment balance directly on Monad Testnet.
-            </p>
-          </div>
-
-          {/* Quick Actions & Faucet Links */}
-          <div className="space-y-1.5 pt-1">
-            {/* 1-Click Instant Testnet Faucet Button */}
-            <button
-              type="button"
-              onClick={() => {
-                addFunds(10);
-                setAddedSuccess(true);
-                setTimeout(() => setAddedSuccess(false), 2500);
-              }}
-              className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-gradient-to-r from-emerald-600/25 to-teal-600/25 hover:from-emerald-600/35 hover:to-teal-600/35 border border-emerald-500/40 text-xs font-semibold text-emerald-300 hover:text-white transition-all cursor-pointer shadow-sm shadow-emerald-950/40"
-            >
-              <div className="flex items-center gap-2">
-                <PlusCircle className="w-3.5 h-3.5 text-emerald-400" />
-                <span>{addedSuccess ? "Added +10.00 USDC!" : "Claim +10.00 Testnet USDC"}</span>
-              </div>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                Instant Top-Up
-              </span>
-            </button>
-
-            <a
-              href="https://faucet.circle.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-gradient-to-r from-blue-600/20 to-cyan-600/20 hover:from-blue-600/30 hover:to-cyan-600/30 border border-cyan-500/30 text-xs font-medium text-cyan-300 hover:text-white transition-all cursor-pointer"
-            >
-              <div className="flex items-center gap-2">
-                <Droplets className="w-3.5 h-3.5 text-cyan-400" />
-                <span>Get Testnet USDC (Circle Faucet)</span>
-              </div>
-              <ExternalLink className="w-3 h-3 text-cyan-400" />
-            </a>
-
-            <div className="flex items-center gap-1.5 pt-1">
-              <button
-                onClick={handleCopyContract}
-                className="flex-1 flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-[11px] text-zinc-300 hover:text-white transition-colors cursor-pointer"
-              >
-                {copied ? (
-                  <>
-                    <Check className="w-3 h-3 text-emerald-400" />
-                    <span className="text-emerald-400">Copied!</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-3 h-3 text-zinc-400" />
-                    <span>Copy USDC Address</span>
-                  </>
-                )}
-              </button>
-
-              <a
-                href={`${MONAD_TESTNET_EXPLORER}/token/${ADDRESSES.paymentToken}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-[11px] text-zinc-300 hover:text-white transition-colors cursor-pointer"
-                title="View USDC on MonadScan"
-              >
-                <span>MonadScan</span>
-                <ExternalLink className="w-3 h-3 text-zinc-400" />
-              </a>
             </div>
           </div>
         </div>

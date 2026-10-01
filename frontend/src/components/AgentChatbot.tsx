@@ -136,19 +136,110 @@ export interface ChatMessage {
   error?: string;
 }
 
-const SAMPLE_COMMANDS = [
-  "datasets",
-  "quote aave-v3-rates",
-  "quote uniswap-v3-twap",
-  "buy aave-v3-rates --max 0.25 --fresh 10",
-  "buy pyth-oracles --max 0.25 --fresh 3",
-  "balance",
-  "help",
+export interface TryCommandChip {
+  id: string;
+  category: "approved" | "rejected" | "util";
+  label: string;
+  command: string;
+  tooltip: string;
+}
+
+const TRY_COMMANDS: TryCommandChip[] = [
+  // ── Approved Queries (Fresh SLA Met · 98% Paid to Seller) ──────────────────
+  {
+    id: "app-cli-aave",
+    category: "approved",
+    label: "buy aave-v3-rates --fresh 10",
+    command: "buy aave-v3-rates --max 0.25 --fresh 10",
+    tooltip: "Approved test: Fresh Aave lending rates (<10s SLA) · Seller Paid",
+  },
+  {
+    id: "app-nl-aave",
+    category: "approved",
+    label: "“get fresh aave lending rates”",
+    command: "get fresh aave lending rates",
+    tooltip: "Approved test: Natural language query for fresh Aave data",
+  },
+  {
+    id: "app-cli-kuru",
+    category: "approved",
+    label: "buy kuru-clob-dex --fresh 10",
+    command: "buy kuru-clob-dex --max 0.25 --fresh 10",
+    tooltip: "Approved test: Real-time Kuru CLOB orderbook (<10s SLA) · Seller Paid",
+  },
+  {
+    id: "app-nl-kuru",
+    category: "approved",
+    label: "“buy kuru orderbook depth”",
+    command: "buy kuru orderbook depth under 10s",
+    tooltip: "Approved test: Natural language query for Kuru CLOB liquidity",
+  },
+  {
+    id: "app-nl-uniswap",
+    category: "approved",
+    label: "“get live uniswap twap”",
+    command: "get live uniswap twap with 5s freshness",
+    tooltip: "Approved test: Natural language query for Uniswap V3 TWAP ticks",
+  },
+
+  // ── Rejected Queries (SLA Breach · 100% Escrow Refunded) ──────────────────
+  {
+    id: "rej-cli-kuru",
+    category: "rejected",
+    label: "fail kuru-clob-dex (SLA breach)",
+    command: "fail kuru-clob-dex",
+    tooltip: "Rejected test: Simulates stale delivery timestamp · 100% Escrow Refund",
+  },
+  {
+    id: "rej-nl-kuru",
+    category: "rejected",
+    label: "“test SLA breach on kuru”",
+    command: "test SLA breach on kuru clob to get 100% refund",
+    tooltip: "Rejected test: Natural language test for SLA breach & automatic refund",
+  },
+  {
+    id: "rej-cli-aave-stale",
+    category: "rejected",
+    label: "buy aave-v3-rates --stale",
+    command: "buy aave-v3-rates --stale",
+    tooltip: "Rejected test: CLI buy with stale simulation flag · 100% Escrow Refund",
+  },
+  {
+    id: "rej-nl-aave-stale",
+    category: "rejected",
+    label: "“simulate stale delivery on aave”",
+    command: "simulate stale delivery on aave rates",
+    tooltip: "Rejected test: Natural language request to simulate stale delivery & test refund",
+  },
+  {
+    id: "rej-cli-aave-fail",
+    category: "rejected",
+    label: "fail aave-v3-rates",
+    command: "fail aave-v3-rates",
+    tooltip: "Rejected test: Direct fail command for Aave rates · 100% Escrow Refund",
+  },
+
+  // ── Explore / Utility ────────────────────────────────────────────────────
+  {
+    id: "util-datasets",
+    category: "util",
+    label: "datasets",
+    command: "datasets",
+    tooltip: "Browse all 10 registered SellerRegistry datasets",
+  },
+  {
+    id: "util-balance",
+    category: "util",
+    label: "balance",
+    command: "balance",
+    tooltip: "View connected buyer USDC balance & escrow status",
+  },
 ];
 
 export const AgentChatbot: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isEnlarged, setIsEnlarged] = useState(false);
+  const [tryFilter, setTryFilter] = useState<"all" | "approved" | "rejected">("all");
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [activeExecutingMsgId, setActiveExecutingMsgId] = useState<string | null>(null);
@@ -393,25 +484,30 @@ export const AgentChatbot: React.FC = () => {
 
       const maxIdx = argv.indexOf("--max");
       const freshIdx = argv.indexOf("--fresh");
+      const isStale = argv.includes("--stale") || argv.includes("--fail") || argv.includes("--breach");
 
       const maxPrice = maxIdx >= 0 ? parseFloat(argv[maxIdx + 1]) || matched.priceUsdc : matched.priceUsdc;
       const freshness = freshIdx >= 0 ? parseFloat(argv[freshIdx + 1]) || matched.freshnessSlaSeconds : matched.freshnessSlaSeconds;
 
       const proposal: AskProposal = {
-        command: `buy ${slug} --max ${maxPrice} --fresh ${freshness}`,
-        argv: [slug, "--max", String(maxPrice), "--fresh", String(freshness)],
-        rationale: `${matched.name} at ${maxPrice} USDC with freshness floor of ${freshness}s`,
+        command: isStale
+          ? `buy ${slug} --stale`
+          : `buy ${slug} --max ${maxPrice} --fresh ${freshness}`,
+        argv: [slug, "--max", String(maxPrice), "--fresh", String(freshness), ...(isStale ? ["--fail"] : [])],
+        rationale: isStale
+          ? `Simulate SLA breach on ${matched.name} to test 100% on-chain refund to buyer`
+          : `${matched.name} at ${maxPrice} USDC with freshness floor of ${freshness}s`,
         dataset: matched,
         maxPrice,
         maxAgeSeconds: freshness,
-        forceStale: false,
+        forceStale: isStale,
       };
 
       appendMessage({
         sender: "veris",
         kind: "proposal",
         proposal,
-        forceStaleSelected: false,
+        forceStaleSelected: isStale,
       });
       return;
     }
@@ -443,9 +539,24 @@ export const AgentChatbot: React.FC = () => {
         setIsLoading(false);
         return;
       }
+
+      const isApprovedIntent =
+        lower.includes("approved") ||
+        lower.includes("get approved") ||
+        lower.includes("successful query") ||
+        lower.includes("passing query");
+
+      if (isApprovedIntent) {
+        handleSend("buy aave-v3-rates --max 0.25 --fresh 10");
+        setIsLoading(false);
+        return;
+      }
+
       const isRefundIntent =
-        (lower.includes("simulate") || lower.includes("test") || lower.includes("trigger") || lower.includes("want a query") || lower.includes("give") || lower.includes("show me")) &&
-        (lower.includes("breach") || lower.includes("refund") || lower.includes("fail") || lower.includes("stale") || lower.includes("rejected"));
+        lower.includes("rejected") ||
+        lower.includes("breach") ||
+        ((lower.includes("simulate") || lower.includes("test") || lower.includes("trigger") || lower.includes("want a query") || lower.includes("give") || lower.includes("show me")) &&
+        (lower.includes("refund") || lower.includes("fail") || lower.includes("stale")));
 
       if (isRefundIntent) {
         let target = "aave";
@@ -955,20 +1066,86 @@ export const AgentChatbot: React.FC = () => {
           </div>
 
           {/* Suggestion Chips Bar */}
-          <div className="px-4 py-2 border-t border-dashed border-white/10 bg-[#05070f] flex items-center gap-1.5 overflow-x-auto scrollbar-none text-[11px]">
-            <span className="text-[10px] text-neutral-500 uppercase font-semibold shrink-0">
-              Try:
-            </span>
-            {SAMPLE_COMMANDS.map((s) => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => handleSend(s)}
-                className="px-2 py-0.5 rounded-md bg-white/5 hover:bg-white/10 text-neutral-300 hover:text-white border border-white/5 font-mono text-[10px] whitespace-nowrap transition-colors cursor-pointer shrink-0"
-              >
-                {s}
-              </button>
-            ))}
+          <div className="px-3.5 py-2 border-t border-dashed border-white/10 bg-[#05070f] flex items-center gap-2 overflow-x-auto scrollbar-thin scrollbar-thumb-white/15 text-[11px]">
+            <div className="flex items-center gap-1.5 shrink-0 pr-1.5 border-r border-white/10">
+              <span className="text-[10px] text-neutral-400 uppercase font-bold tracking-wider shrink-0 flex items-center gap-1">
+                <Sparkles className="w-3 h-3 text-cyan-400" />
+                Try:
+              </span>
+
+              {/* Category Filter Pills */}
+              <div className="flex items-center gap-1 bg-black/40 p-0.5 rounded-md border border-white/5 text-[9px] font-mono">
+                <button
+                  type="button"
+                  onClick={() => setTryFilter("all")}
+                  className={`px-1.5 py-0.5 rounded transition-all cursor-pointer ${
+                    tryFilter === "all"
+                      ? "bg-white/15 text-white font-bold"
+                      : "text-neutral-400 hover:text-neutral-200"
+                  }`}
+                >
+                  All
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTryFilter("approved")}
+                  className={`px-1.5 py-0.5 rounded transition-all cursor-pointer flex items-center gap-1 ${
+                    tryFilter === "approved"
+                      ? "bg-emerald-500/25 text-emerald-300 font-bold border border-emerald-500/40"
+                      : "text-emerald-400/70 hover:text-emerald-300"
+                  }`}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                  Approved
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTryFilter("rejected")}
+                  className={`px-1.5 py-0.5 rounded transition-all cursor-pointer flex items-center gap-1 ${
+                    tryFilter === "rejected"
+                      ? "bg-rose-500/25 text-rose-300 font-bold border border-rose-500/40"
+                      : "text-rose-400/70 hover:text-rose-300"
+                  }`}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
+                  Rejected
+                </button>
+              </div>
+            </div>
+
+            {/* Chips List */}
+            {TRY_COMMANDS.filter(
+              (c) =>
+                tryFilter === "all" ||
+                c.category === tryFilter ||
+                (tryFilter === "all" && c.category === "util")
+            ).map((c) => {
+              const isApproved = c.category === "approved";
+              const isRejected = c.category === "rejected";
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => handleSend(c.command)}
+                  title={c.tooltip}
+                  className={`px-2 py-0.5 rounded-md font-mono text-[10px] whitespace-nowrap transition-all cursor-pointer shrink-0 active:scale-95 flex items-center gap-1.5 ${
+                    isApproved
+                      ? "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 hover:text-emerald-100 border border-emerald-500/30 hover:border-emerald-500/50 shadow-sm shadow-emerald-950/30"
+                      : isRejected
+                      ? "bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 hover:text-rose-100 border border-rose-500/30 hover:border-rose-500/50 shadow-sm shadow-rose-950/30"
+                      : "bg-white/5 hover:bg-white/10 text-neutral-300 hover:text-white border border-white/5"
+                  }`}
+                >
+                  {isApproved && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0 shadow-sm shadow-emerald-400/60" />
+                  )}
+                  {isRejected && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-400 shrink-0 shadow-sm shadow-rose-400/60" />
+                  )}
+                  <span>{c.label}</span>
+                </button>
+              );
+            })}
           </div>
 
           {/* Terminal Input Bar */}

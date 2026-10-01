@@ -6,10 +6,13 @@ import {
   ChevronDown,
   ChevronUp,
   RotateCcw,
+  Coins,
+  ShieldCheck,
 } from "lucide-react";
 import { MONAD_TESTNET_EXPLORER } from "../lib/contracts";
 import type { JobExecutionReceipt, BuyerStep } from "../hooks/useBuyerFlow";
 import { DeliveredDataView } from "./DeliveredDataView";
+import { usePendingRefunds, isRefundClaimed } from "../hooks/usePendingRefunds";
 
 export type PurchaseStepKey = "quote" | "pay" | "deliver" | "verdict" | "settle" | "split";
 
@@ -240,6 +243,10 @@ export function OpenBookTxCard({
   freshnessSlaSeconds: number;
 }) {
   const [detailsOpen, setDetailsOpen] = useState(true);
+  const [localClaimed, setLocalClaimed] = useState(false);
+  const [claimTx, setClaimTx] = useState<string | undefined>(receipt.txClaimRefund);
+  const { claimSingleRefund, isClaiming } = usePendingRefunds();
+
   const isRefunded = receipt.verdict === "REFUNDED" || receipt.outcome === "refunded" || receipt.status === "Refunded";
   const stampVerdict = receipt.verdict || (isRefunded ? "REFUNDED" : "APPROVED");
   const age = receipt.dataAgeSeconds ?? 2.4;
@@ -248,6 +255,18 @@ export function OpenBookTxCard({
   const total = budgetUsdc;
   const sellerShare = Number((total * 0.98).toFixed(4));
   const treasuryShare = Number((total * 0.02).toFixed(4));
+
+  const hasBeenClaimed = receipt.isRefundClaimed || localClaimed || isRefundClaimed(receipt.jobId);
+
+  const handleClaim = async () => {
+    try {
+      const tx = await claimSingleRefund(receipt.jobId);
+      setClaimTx(tx);
+      setLocalClaimed(true);
+    } catch (err) {
+      console.error("[OpenBookReceipt] Claim refund error:", err);
+    }
+  };
 
   return (
     <div className="rounded-2xl border border-white/10 bg-[#06080f] p-5 sm:p-6 shadow-2xl font-mono space-y-4">
@@ -427,12 +446,61 @@ export function OpenBookTxCard({
         </div>
       </dl>
 
+      {/* Refund Claim Action Block */}
+      {isRefunded && (
+        <div className="p-3.5 rounded-xl border transition-all my-2 font-sans bg-[#0c0e18] border-amber-500/30">
+          {hasBeenClaimed ? (
+            <div className="flex items-center justify-between gap-2 text-xs">
+              <div className="flex items-center gap-2 text-emerald-400 font-semibold">
+                <ShieldCheck size={16} className="text-emerald-400 shrink-0" />
+                <span>100% Escrow Refund Claimed ({total.toFixed(2)} USDC)</span>
+              </div>
+              {claimTx && (
+                <a
+                  href={`${MONAD_TESTNET_EXPLORER}/tx/${claimTx}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-[11px] text-cyan-400 hover:underline flex items-center gap-1 font-mono"
+                >
+                  <span>View Claim Tx</span>
+                  <ExternalLink size={10} />
+                </a>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-amber-300 text-xs flex items-center gap-1.5 font-mono">
+                  <Coins size={14} className="text-amber-400" />
+                  100% Escrow Refund Available ({total.toFixed(2)} USDC)
+                </span>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                  Router Escrow
+                </span>
+              </div>
+              <p className="text-[11px] text-neutral-400 leading-snug">
+                The SLA was breached. ACPCore returned your escrowed USDC to the Veris Buyer Router. Click below to withdraw it directly to your wallet.
+              </p>
+              <button
+                type="button"
+                onClick={handleClaim}
+                disabled={isClaiming}
+                className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-bold text-xs flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-amber-950/40 transition-all disabled:opacity-50"
+              >
+                {isClaiming ? <RotateCcw size={13} className="animate-spin" /> : <Coins size={13} />}
+                <span>{isClaiming ? "Withdrawing Refund to Wallet..." : `Withdraw ${total.toFixed(2)} USDC to Wallet`}</span>
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Contract Guarantee Note (OpenBook tape__note) */}
       <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5 text-[11px] text-neutral-400 font-sans leading-relaxed">
         <strong>Automatic On-Chain Recourse:</strong> The freshness promise was written into the escrow contract (<code className="text-purple-300 font-mono">ACPCore.sol</code>) at payment time. The delivered block timestamp was checked against it onchain via <code className="text-purple-300 font-mono">SlaEvaluator.sol</code>.
         {isFresh
           ? " The data met the SLA, so payment released to the seller (98%) and treasury (2%)."
-          : " The SLA was breached, so 100% was automatically refunded to your wallet without arbitration."}
+          : ` The SLA was breached, so 100% of your escrow deposit (${total.toFixed(2)} USDC) was refunded without arbitration. (EVM network gas consumed by Monad validators is non-refundable).`}
       </div>
 
       {/* Delivered Data Payload View (Prominent Metric Cards + Verified JSON) */}
