@@ -71,9 +71,7 @@ function parseHeuristically(query: string, availableSellers: SellerOption[]) {
   }
 
   if (maxAgeSeconds === undefined || isNaN(maxAgeSeconds) || maxAgeSeconds <= 0) {
-    return {
-      error: `Missing or ambiguous freshness limit. Please specify a freshness window (e.g. "under 10 seconds old") instead of guessing.`,
-    };
+    maxAgeSeconds = matchedSeller.freshnessSlaSeconds || 10;
   }
 
   // 2. Extract price: MUST NOT match "V3 USDC" as 3 USDC
@@ -102,9 +100,7 @@ function parseHeuristically(query: string, availableSellers: SellerOption[]) {
   }
 
   if (maxPrice === undefined || isNaN(maxPrice) || maxPrice <= 0) {
-    return {
-      error: `Missing or ambiguous price limit. Please specify a maximum budget (e.g. "max 0.25 USDC" or "max 5 cents") instead of guessing.`,
-    };
+    maxPrice = matchedSeller.priceUsdc || 0.25;
   }
 
   return {
@@ -138,7 +134,8 @@ ${sellersPromptText}
 
 Return ONLY a JSON object matching this schema: { "sellerId": string, "matchedDatasetName": string, "maxPrice": number, "maxAgeSeconds": number }.
 Set "sellerId" to "veris.eth" and "matchedDatasetName" to the exact matching dataset name.
-If the request is ambiguous, missing a price or freshness limit, or doesn't match any known seller/dataset, return { "error": string } explaining what's missing instead of guessing.
+If price or freshness limit is not explicitly stated in user query, use the dataset's base price and promised SLA default values from the list above.
+If the query doesn't match any known dataset, return { "error": string } explaining what is unsupported.
 Do NOT include markdown backticks or any explanatory text outside the JSON.`;
 
     if (apiKey && apiKey !== '') {

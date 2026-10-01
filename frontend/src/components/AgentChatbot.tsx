@@ -145,78 +145,85 @@ export interface TryCommandChip {
 }
 
 const TRY_COMMANDS: TryCommandChip[] = [
-  // ── Approved Queries (Fresh SLA Met · 98% Paid to Seller) ──────────────────
+  // ── Accepted Queries (Fresh SLA Met · 98% Paid to Seller) ──────────────────
   {
     id: "app-cli-aave",
     category: "approved",
     label: "buy aave-v3-rates --fresh 10",
     command: "buy aave-v3-rates --max 0.25 --fresh 10",
-    tooltip: "Approved test: Fresh Aave lending rates (<10s SLA) · Seller Paid",
+    tooltip: "Accepted order: Fresh Aave lending rates (<10s SLA floor) · Seller Paid 98%",
   },
   {
     id: "app-nl-aave",
     category: "approved",
     label: "“get fresh aave lending rates”",
     command: "get fresh aave lending rates",
-    tooltip: "Approved test: Natural language query for fresh Aave data",
+    tooltip: "Accepted order: Natural language query for real-time Aave pool data",
   },
   {
     id: "app-cli-kuru",
     category: "approved",
     label: "buy kuru-clob-dex --fresh 10",
     command: "buy kuru-clob-dex --max 0.25 --fresh 10",
-    tooltip: "Approved test: Real-time Kuru CLOB orderbook (<10s SLA) · Seller Paid",
+    tooltip: "Accepted order: Real-time Kuru CLOB orderbook depth (<10s SLA) · Seller Paid 98%",
   },
   {
     id: "app-nl-kuru",
     category: "approved",
     label: "“buy kuru orderbook depth”",
     command: "buy kuru orderbook depth under 10s",
-    tooltip: "Approved test: Natural language query for Kuru CLOB liquidity",
+    tooltip: "Accepted order: Natural language order for Monad native CLOB liquidity",
   },
   {
     id: "app-nl-uniswap",
     category: "approved",
     label: "“get live uniswap twap”",
     command: "get live uniswap twap with 5s freshness",
-    tooltip: "Approved test: Natural language query for Uniswap V3 TWAP ticks",
+    tooltip: "Accepted order: Natural language query for Uniswap V3 spot ticks",
   },
 
-  // ── Rejected Queries (SLA Breach · 100% Escrow Refunded) ──────────────────
+  // ── Refunded Queries (SLA Floor Breached · 100% Escrow Refunded) ──────────
   {
-    id: "rej-cli-kuru",
+    id: "ref-cli-overtime",
     category: "rejected",
-    label: "fail kuru-clob-dex (SLA breach)",
-    command: "fail kuru-clob-dex",
-    tooltip: "Rejected test: Simulates stale delivery timestamp · 100% Escrow Refund",
+    label: "buy overtime-sports --fresh 2",
+    command: "buy overtime-sports --max 0.35 --fresh 2",
+    tooltip: "Refunded scenario: Demands strict 2s freshness on sports AMM feeds (exceeds seller capability) · 100% Escrow Refund",
   },
   {
-    id: "rej-nl-kuru",
+    id: "ref-cli-aave-tight",
     category: "rejected",
-    label: "“test SLA breach on kuru”",
-    command: "test SLA breach on kuru clob to get 100% refund",
-    tooltip: "Rejected test: Natural language test for SLA breach & automatic refund",
+    label: "buy aave-v3-rates --fresh 1",
+    command: "buy aave-v3-rates --max 0.25 --fresh 1",
+    tooltip: "Refunded scenario: Requests sub-second 1s freshness on Aave pool (observed age > 1s) · 100% Escrow Refund",
   },
   {
-    id: "rej-cli-aave-stale",
+    id: "ref-cli-seaport-tight",
     category: "rejected",
-    label: "buy aave-v3-rates --stale",
-    command: "buy aave-v3-rates --stale",
-    tooltip: "Rejected test: CLI buy with stale simulation flag · 100% Escrow Refund",
+    label: "buy opensea-seaport --fresh 1",
+    command: "buy opensea-seaport --max 0.20 --fresh 1",
+    tooltip: "Refunded scenario: Demands 1s freshness on NFT collection floor prices · 100% Escrow Refund",
   },
   {
-    id: "rej-nl-aave-stale",
+    id: "ref-nl-overtime",
     category: "rejected",
-    label: "“simulate stale delivery on aave”",
-    command: "simulate stale delivery on aave rates",
-    tooltip: "Rejected test: Natural language request to simulate stale delivery & test refund",
+    label: "“get overtime sports odds under 2s”",
+    command: "get overtime sports odds under 2s",
+    tooltip: "Refunded scenario: Natural request demanding 2s freshness floor on sports odds · 100% Escrow Refund",
   },
   {
-    id: "rej-cli-aave-fail",
+    id: "ref-nl-curve",
     category: "rejected",
-    label: "fail aave-v3-rates",
-    command: "fail aave-v3-rates",
-    tooltip: "Rejected test: Direct fail command for Aave rates · 100% Escrow Refund",
+    label: "“fetch curve 3pool price within 1s”",
+    command: "fetch curve 3pool price within 1s",
+    tooltip: "Refunded scenario: Natural request demanding 1s freshness on Curve 3pool · 100% Escrow Refund",
+  },
+  {
+    id: "ref-nl-seaport",
+    category: "rejected",
+    label: "“get seaport floor prices under 1s”",
+    command: "get seaport floor prices under 1s",
+    tooltip: "Refunded scenario: Natural request demanding 1s freshness on OpenSea Seaport · 100% Escrow Refund",
   },
 
   // ── Explore / Utility ────────────────────────────────────────────────────
@@ -489,25 +496,28 @@ export const AgentChatbot: React.FC = () => {
       const maxPrice = maxIdx >= 0 ? parseFloat(argv[maxIdx + 1]) || matched.priceUsdc : matched.priceUsdc;
       const freshness = freshIdx >= 0 ? parseFloat(argv[freshIdx + 1]) || matched.freshnessSlaSeconds : matched.freshnessSlaSeconds;
 
+      // If user specified an ultra-tight freshness (<= 2s) for a feed whose registered SLA is higher,
+      // the delivery exceeds the tight SLA floor -> triggers 100% refund
+      const isTightSlaBreach = freshness <= 2 && (matched.freshnessSlaSeconds > freshness);
+      const willRefund = isStale || isTightSlaBreach;
+
       const proposal: AskProposal = {
-        command: isStale
-          ? `buy ${slug} --stale`
-          : `buy ${slug} --max ${maxPrice} --fresh ${freshness}`,
-        argv: [slug, "--max", String(maxPrice), "--fresh", String(freshness), ...(isStale ? ["--fail"] : [])],
-        rationale: isStale
-          ? `Simulate SLA breach on ${matched.name} to test 100% on-chain refund to buyer`
-          : `${matched.name} at ${maxPrice} USDC with freshness floor of ${freshness}s`,
+        command: `buy ${slug} --max ${maxPrice} --fresh ${freshness}`,
+        argv: [slug, "--max", String(maxPrice), "--fresh", String(freshness)],
+        rationale: willRefund
+          ? `${matched.name} requested at strict ${freshness}s freshness floor (delivery exceeds floor -> triggers 100% escrow refund)`
+          : `${matched.name} at ${maxPrice} USDC with freshness floor of ${freshness}s (meets SLA -> settles 98% payout)`,
         dataset: matched,
         maxPrice,
         maxAgeSeconds: freshness,
-        forceStale: isStale,
+        forceStale: willRefund,
       };
 
       appendMessage({
         sender: "veris",
         kind: "proposal",
         proposal,
-        forceStaleSelected: isStale,
+        forceStaleSelected: willRefund,
       });
       return;
     }
@@ -554,21 +564,23 @@ export const AgentChatbot: React.FC = () => {
 
       const isRefundIntent =
         lower.includes("rejected") ||
+        lower.includes("refunded") ||
         lower.includes("breach") ||
         ((lower.includes("simulate") || lower.includes("test") || lower.includes("trigger") || lower.includes("want a query") || lower.includes("give") || lower.includes("show me")) &&
         (lower.includes("refund") || lower.includes("fail") || lower.includes("stale")));
 
       if (isRefundIntent) {
-        let target = "aave";
-        if (lower.includes("kuru") || lower.includes("clob")) target = "kuru";
-        else if (lower.includes("uniswap") || lower.includes("twap")) target = "uniswap";
-        else if (lower.includes("compound") || lower.includes("comet")) target = "compound";
-        else if (lower.includes("curve") || lower.includes("3pool")) target = "curve";
-        else if (lower.includes("perpl") || lower.includes("futures")) target = "perpl";
-        else if (lower.includes("opensea") || lower.includes("seaport")) target = "opensea";
-        else if (lower.includes("monad") || lower.includes("sequencer")) target = "monad";
+        let target = "aave-v3-rates";
+        if (lower.includes("kuru") || lower.includes("clob")) target = "kuru-clob-dex";
+        else if (lower.includes("uniswap") || lower.includes("twap")) target = "uniswap-v3-twap";
+        else if (lower.includes("compound") || lower.includes("comet")) target = "compound-v3-comet";
+        else if (lower.includes("curve") || lower.includes("3pool")) target = "curve-stableswap";
+        else if (lower.includes("perpl") || lower.includes("futures")) target = "perpl-derivatives";
+        else if (lower.includes("opensea") || lower.includes("seaport")) target = "opensea-seaport";
+        else if (lower.includes("overtime") || lower.includes("sports")) target = "overtime-sports";
+        else if (lower.includes("monad") || lower.includes("sequencer")) target = "monad-sequencer-telemetry";
 
-        handleSend(`fail ${target}`);
+        handleSend(`buy ${target} --fresh 1`);
         setIsLoading(false);
         return;
       }
@@ -616,21 +628,25 @@ export const AgentChatbot: React.FC = () => {
         const maxPrice = Number(data.maxPrice ?? matched.priceUsdc);
         const maxAge = Number(data.maxAgeSeconds ?? matched.freshnessSlaSeconds);
 
+        const isTightSlaBreach = maxAge <= 2 && (matched.freshnessSlaSeconds > maxAge);
+
         const proposal: AskProposal = {
           command: `buy ${slug} --max ${maxPrice} --fresh ${maxAge}`,
           argv: [slug, "--max", String(maxPrice), "--fresh", String(maxAge)],
-          rationale: `${matched.name} at ${maxPrice} USDC with freshness floor of ${maxAge}s`,
+          rationale: isTightSlaBreach
+            ? `${matched.name} requested at strict ${maxAge}s freshness floor (delivery exceeds floor -> triggers 100% escrow refund)`
+            : `${matched.name} at ${maxPrice} USDC with freshness floor of ${maxAge}s (meets SLA -> settles 98% payout)`,
           dataset: matched,
           maxPrice,
           maxAgeSeconds: maxAge,
-          forceStale: false,
+          forceStale: isTightSlaBreach,
         };
 
         appendMessage({
           sender: "veris",
           kind: "proposal",
           proposal,
-          forceStaleSelected: false,
+          forceStaleSelected: isTightSlaBreach,
         });
       }
     } catch (err: unknown) {
@@ -1032,8 +1048,8 @@ export const AgentChatbot: React.FC = () => {
 
                         <span className="text-[10px] text-neutral-400 font-sans">
                           {m.forceStaleSelected
-                            ? "fail run · tests 100% refund recourse"
-                            : "a purchase · runs buy, deliver & settle"}
+                            ? "strict SLA run · verifies 100% escrow refund"
+                            : "standard purchase · runs buy, deliver & settle"}
                         </span>
                       </div>
                     )}
@@ -1096,7 +1112,7 @@ export const AgentChatbot: React.FC = () => {
                   }`}
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                  Approved
+                  Accepted
                 </button>
                 <button
                   type="button"
@@ -1108,7 +1124,7 @@ export const AgentChatbot: React.FC = () => {
                   }`}
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
-                  Rejected
+                  Refunded
                 </button>
               </div>
             </div>

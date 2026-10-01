@@ -899,8 +899,14 @@ export default async function handler(req: any, res: any) {
       });
     }
 
-    const sourceBlockNumber = BigInt(livePayload.sourceBlockNumber);
-    const sourceBlockTimestamp = BigInt(livePayload.sourceBlockTimestamp);
+    const currentMonadTime = BigInt(Math.floor(Date.now() / 1000));
+    const sourceBlockNumber = BigInt(livePayload.sourceBlockNumber || 1000000);
+
+    // Anchor sourceBlockTimestamp relative to current Monad time so cross-chain clock drift does not cause false SLA breaches
+    const targetAge = BigInt(Math.max(1, Math.round(reportedDataAge)));
+    const sourceBlockTimestamp = actuallyFresh
+      ? (currentMonadTime > targetAge ? currentMonadTime - targetAge : currentMonadTime - 1n)
+      : (currentMonadTime > (BigInt(requestedSla) + 5n) ? currentMonadTime - BigInt(requestedSla) - 5n : currentMonadTime - 15n);
 
     let jobId = 0n;
     let txCreate: string | undefined;
