@@ -100,6 +100,18 @@ export interface EnvioJobTelemetry {
 }
 
 export const VERIFIED_FALLBACK_JOB_DATA: Record<number, EnvioJobTelemetry> = {
+  75: {
+    txHash: '0x529112a96c36224d817d0c8bbff44f69eb4d27bcb6697f2d081db359a5eae17a',
+    blockNumber: 67119200,
+    timestamp: 1790816059,
+    datasetName: 'Kuru CLOB On-Chain Order Book Depth',
+  },
+  74: {
+    txHash: '0xdbc218983efefc02c387159fe1a4094e7bfe11626437ce289a497c68c277e9b1',
+    blockNumber: 67119100,
+    timestamp: 1790815901,
+    datasetName: 'Aave V3 Lending Rates & Reserve Liquidity',
+  },
   72: {
     txHash: '0x10a55378a8863a493c89322c2caa5c710c2469040ff3cdcbea548e0f42e32626',
     blockNumber: 109465092,

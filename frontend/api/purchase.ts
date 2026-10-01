@@ -55,7 +55,7 @@ function getEthClient() {
 
 function getMonadClient() {
   return createPublicClient({
-    transport: http(ENVIO_HYPERRPC_MONAD, { timeout: 4500 }),
+    transport: http(MONAD_TESTNET_RPC, { timeout: 4500 }),
   });
 }
 
