@@ -44,78 +44,44 @@ Sellers register their datasets on-chain (`SellerRegistry.sol`) with a price per
 
 ## System Architecture
 
-A buyer agent locks USDC into escrow, the data provider delivers the data with a signed block timestamp, and the contract checks the clock. If it's fresh, the seller gets paid. If it's stale, the buyer gets their money back. **Dynamic** powers keyless embedded wallets and programmable execution, while **Envio** powers sub-second RPC block headers, HyperSync batch event streams, and real-time GraphQL analytics.
+A buyer agent locks USDC into escrow, the data provider delivers the data with a signed block timestamp, and the contract checks the clock. If it's fresh, the seller gets paid. If it's stale, the buyer gets their money back. **Dynamic** powers keyless embedded wallets, while **Envio** powers sub-second RPC block headers and real-time event indexing.
 
 ```mermaid
-flowchart TD
-    subgraph Client["Client & Agent Layer (Dynamic WaaS)"]
-        Buyer["Buyer Agent / Frontend<br>(Natural Language / UI)"]
-        Dynamic["Dynamic Embedded Wallet<br>• Keyless Social/Passkey Auth<br>• Monad Testnet Auto-Inject"]
-        Buyer -->|"1. Auth & Sign Intent"| Dynamic
-    end
-
-    subgraph OnChain["Monad Testnet (Chain ID 10143)"]
-        Router["VerisBuyerRouter.sol & ACPCore.sol<br>(ERC-8183 Autonomous Escrow)"]
-        Evaluator{"SlaEvaluator.sol<br>Freshness Check<br>(Timestamp vs SLA)"}
-        Reputation["ReputationRegistry.sol<br>(ERC-8004 Persistent Trust)"]
-        Treasury["VerisTreasury.sol<br>(2% Protocol Fee)"]
-        SellerWallet["Seller Dynamic Payout Wallet<br>(98% Query Revenue)"]
-
-        Router -->|"Lock Funds"| Evaluator
-        Evaluator -->|"FRESH: <= SLA"| SellerWallet
-        Evaluator -->|"FRESH: Fee Split"| Treasury
-        Evaluator -->|"FRESH: +1 Met / STALE: +1 Missed"| Reputation
-        Evaluator -->|"STALE: > SLA"| Refund["100% Refunded to Buyer"]
-    end
-
-    subgraph Provider["Data Provider & Operator"]
-        DataSources["Live Financial Feeds<br>(Kuru CLOB, Uniswap V3, Aave V3)"]
-        Operator["Autonomous Operator Service<br>(ECDSA EIP-191 Proof Generator)"]
-        DataSources --> Operator
-    end
-
-    subgraph Envio["Envio Telemetry Engine"]
-        HyperRPC["Envio HyperRPC<br>(Sub-100ms Block Headers)"]
-        HyperSync["Envio HyperSync & HyperIndex<br>(Batch Event Log Stream)"]
-        GraphQL["7-Entity Relational GraphQL API<br>(Live Metrics, Latency & Rankings)"]
-
-        HyperRPC -->|"Fast Block Context"| Operator
-        HyperSync --> GraphQL
-    end
-
-    Dynamic -->|"2. 1-Click createAndFund()"| Router
-    Operator -->|"3. Deliver Data + Signed Proof"| Evaluator
-    OnChain -.->|"Real-Time Event Stream"| HyperSync
-    GraphQL -.->|"4. Stream Telemetry & Trust Scores"| Buyer
+graph TD
+    A["1. Buyer Agent"] -->|"Keyless Auth & Sign"| DYN["Dynamic Embedded Wallet"]
+    DYN -->|"Locks USDC in Escrow"| B["2. Escrow on Monad<br>(ACPCore.sol)"]
+    
+    C["3. Data Provider<br>(Envio HyperRPC)"] -->|"Delivers Data + Signed Proof"| D{"4. SlaEvaluator<br>Is data fresh?"}
+    B --> D
+    
+    D -->|"YES (<= SLA)"| E["Seller Paid (98%) + Reputation Up"]
+    D -->|"NO (Stale / Offline)"| F["Buyer 100% Refunded Automatically"]
+    
+    D -.->|"Real-Time Events"| ENV["5. Envio HyperSync Indexer<br>(GraphQL Analytics)"]
+    ENV -.->|"Live Trust Scores"| A
 ```
 
 ```
-  ┌────────────────────────┐                   1. 1-Click Escrow Deposit
-  │  Buyer Agent / User    │ ──────► [ Dynamic WaaS Wallet ] ─────────────► [ ACPCore Escrow ]
-  │  (Frontend / Terminal) │         (Keyless Auth & Signer)                        │
-  └───────────▲────────────┘                                                        │
-              │                                                                     ▼
-      4. Live Telemetry &                                                   [ SLA Evaluator ]
-         GraphQL Analytics                                                  (Checks Timestamp)
-              │                                                                     │
-  ┌───────────┴────────────┐                   2. Data + Signed Proof               │
-  │  Envio HyperSync /     │ ◄──────────────────────────────────────────────────────┤
-  │  HyperIndex Engine     │     (Sub-100ms Escrow & Settlement Events)             │
-  └───────────▲────────────┘                                                        │
-              │                                           ┌─────────────────────────┴─────────────────────────┐
-      Real-Time Block RPC                                 ▼                                                   ▼
-              │                                 [ FRESH: <= SLA Window ]                            [ STALE: > SLA Window ]
-  ┌───────────┴────────────┐                    • 98% Paid to Seller (Dynamic Wallet)               • 100% Refunded to Buyer
-  │ Data Provider /        │ ─────────────────► • 2% Protocol Fee to Treasury                       • 0% Fee Taken
-  │ Autonomous Operator    │                    • +1 ERC-8004 Reputation Score                      • +1 Missed Count Logged
-  └────────────────────────┘
+  [ Buyer Agent ] ──► [ Dynamic Wallet ] ──( 1. Locks USDC )──► [ Escrow Contract ]
+                                                                        │
+  [ Data Provider (Envio HyperRPC) ] ──( 2. Delivers Proof )──► [ SLA Evaluator ]
+                                                                        │
+                                 ┌──────────────────────────────────────┴──────────────────────────────────────┐
+                                 ▼                                                                             ▼
+                        [ FRESH: <= SLA Window ]                                                      [ STALE: > SLA Window ]
+                      • 98% Paid to Seller                                                          • 100% Refunded to Buyer
+                      • 2% Protocol Fee                                                             • 0% Fee taken
+                      • +1 Reputation Score                                                         • +1 Missed count
+                                 │
+                                 └──────────────► [ Envio HyperSync ] ──────────────► [ Buyer Agent ]
+                                                   (Real-time GraphQL & Trust Scores)
 ```
 
 ### How It Works in 4 Steps
-1. **Lock via Dynamic WaaS:** The buyer agent or user authenticates keylessly with **Dynamic**, and deposits USDC into escrow (`ACPCore.sol` via `VerisBuyerRouter.sol`) specifying a strict freshness SLA (e.g. *“data must be ≤ 3 seconds old”*).
-2. **Attest with Envio HyperRPC:** The seller's autonomous operator pulls real-time market data, queries **Envio HyperRPC** for low-latency block headers and timestamps, and generates an ECDSA attestation over the payload and block proof.
-3. **Settle or Refund on Monad:** `SlaEvaluator.sol` compares the attestation timestamp to the current block. If fresh, 98% of funds are released to the seller's Dynamic wallet, 2% goes to `VerisTreasury`, and ERC-8004 reputation is incremented. If stale or offline, the contract automatically refunds 100% of the funds back to the buyer agent.
-4. **Index & Stream via Envio HyperSync:** **Envio HyperSync & HyperIndex** ingests on-chain escrow events in sub-100ms batches, exposing a 7-entity relational GraphQL analytics API that feeds live telemetry, latency averages, and trust rankings back to buyer agents.
+1. **Lock (via Dynamic):** The buyer agent authenticates keylessly with **Dynamic** and deposits USDC into escrow (`ACPCore.sol`) with a strict freshness SLA (e.g. *“data must be ≤ 3 seconds old”*).
+2. **Deliver (via Envio):** The seller fetches live data, stamps it with sub-second block timestamps from **Envio HyperRPC**, signs an ECDSA proof, and delivers it to `SlaEvaluator.sol`.
+3. **Settle or Refund:** `SlaEvaluator.sol` atomically verifies the proof. If fresh, 98% is paid to the seller and reputation increments; if stale or offline, 100% is refunded to the buyer immediately.
+4. **Index in Real-Time:** **Envio HyperSync** indexes the settlement event in sub-100ms, updating the GraphQL analytics API and ERC-8004 reliability rankings.
 
 ---
 
