@@ -44,13 +44,13 @@ Sellers register their datasets on-chain (`SellerRegistry.sol`) with a price per
 
 ## System Architecture
 
-A buyer agent locks USDC into escrow, the data provider delivers the data with a signed block timestamp, and the contract checks the clock. If it's fresh, the seller gets paid. If it's stale, the buyer gets their money back. **Dynamic** powers keyless embedded wallets, spending caps, and programmable execution, while **Envio** powers sub-second RPC block headers, HyperSync batch event streams, and real-time GraphQL analytics.
+A buyer agent locks USDC into escrow, the data provider delivers the data with a signed block timestamp, and the contract checks the clock. If it's fresh, the seller gets paid. If it's stale, the buyer gets their money back. **Dynamic** powers keyless embedded wallets and programmable execution, while **Envio** powers sub-second RPC block headers, HyperSync batch event streams, and real-time GraphQL analytics.
 
 ```mermaid
 flowchart TD
     subgraph Client["Client & Agent Layer (Dynamic WaaS)"]
         Buyer["Buyer Agent / Frontend<br>(Natural Language / UI)"]
-        Dynamic["Dynamic Embedded Wallet<br>• Keyless Social/Passkey Auth<br>• $50 Hard Spending Cap Guard<br>• Monad Testnet Auto-Inject"]
+        Dynamic["Dynamic Embedded Wallet<br>• Keyless Social/Passkey Auth<br>• Monad Testnet Auto-Inject"]
         Buyer -->|"1. Auth & Sign Intent"| Dynamic
     end
 
@@ -92,7 +92,7 @@ flowchart TD
 ```
   ┌────────────────────────┐                   1. 1-Click Escrow Deposit
   │  Buyer Agent / User    │ ──────► [ Dynamic WaaS Wallet ] ─────────────► [ ACPCore Escrow ]
-  │  (Frontend / Terminal) │         (Keyless Auth + $50 Cap)                       │
+  │  (Frontend / Terminal) │         (Keyless Auth & Signer)                        │
   └───────────▲────────────┘                                                        │
               │                                                                     ▼
       4. Live Telemetry &                                                   [ SLA Evaluator ]
@@ -112,7 +112,7 @@ flowchart TD
 ```
 
 ### How It Works in 4 Steps
-1. **Lock via Dynamic WaaS:** The buyer agent or user authenticates keylessly with **Dynamic**, applies the client-side $50 spending cap, and deposits USDC into escrow (`ACPCore.sol` via `VerisBuyerRouter.sol`) specifying a strict freshness SLA (e.g. *“data must be ≤ 3 seconds old”*).
+1. **Lock via Dynamic WaaS:** The buyer agent or user authenticates keylessly with **Dynamic**, and deposits USDC into escrow (`ACPCore.sol` via `VerisBuyerRouter.sol`) specifying a strict freshness SLA (e.g. *“data must be ≤ 3 seconds old”*).
 2. **Attest with Envio HyperRPC:** The seller's autonomous operator pulls real-time market data, queries **Envio HyperRPC** for low-latency block headers and timestamps, and generates an ECDSA attestation over the payload and block proof.
 3. **Settle or Refund on Monad:** `SlaEvaluator.sol` compares the attestation timestamp to the current block. If fresh, 98% of funds are released to the seller's Dynamic wallet, 2% goes to `VerisTreasury`, and ERC-8004 reputation is incremented. If stale or offline, the contract automatically refunds 100% of the funds back to the buyer agent.
 4. **Index & Stream via Envio HyperSync:** **Envio HyperSync & HyperIndex** ingests on-chain escrow events in sub-100ms batches, exposing a 7-entity relational GraphQL analytics API that feeds live telemetry, latency averages, and trust rankings back to buyer agents.
