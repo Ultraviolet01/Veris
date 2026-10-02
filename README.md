@@ -42,79 +42,81 @@ Sellers register their datasets on-chain (`SellerRegistry.sol`) with a price per
 
 ---
 
-## Simple & Intuitive System Architecture
+## Simple System Architecture
+
+A buyer agent locks USDC into escrow, the data provider delivers the data with a signed block timestamp, and the contract checks the clock. If it's fresh, the seller gets paid. If it's stale, the buyer gets their money back.
 
 ```mermaid
-sequenceDiagram
-    autonumber
-    actor Buyer as Buyer Agent / User (MCP / Dynamic WaaS)
-    participant Router as VerisBuyerRouter (1-Click Atomic)
-    participant Escrow as ACPCore (ERC-8183 Escrow)
-    participant Operator as Autonomous Operator (ECDSA Signer)
-    participant Evaluator as SlaEvaluator (Programmatic Hook)
-    participant Reputation as ReputationRegistry (ERC-8004)
-    participant Treasury as VerisTreasury (Protocol 2%)
-    participant Indexer as Envio HyperIndex / HyperSync
-
-    Note over Buyer,Router: Step 1: 1-Click Escrow Deposit
-    Buyer->>Router: createAndFund(budget, provider, evaluator, hook)
-    Router->>Escrow: createJob() + setBudget() + fund() [USDC locked]
-    Escrow-->>Indexer: Emits JobCreated & JobFunded
-
-    Note over Operator,Evaluator: Step 2: Data Fetch & ECDSA Attestation
-    Operator->>Operator: Fetch source block data (Kuru, Aave, Uniswap)
-    Operator->>Operator: Sign ECDSA proof (sellerId, jobId, dataHash, sourceTimestamp)
+graph TD
+    A["1. Buyer Agent<br>(Locks USDC in Escrow)"] --> B["2. Escrow on Monad<br>(ACPCore.sol)"]
+    C["3. Data Provider<br>(Delivers Data + Signed Proof)"] --> D{"4. SlaEvaluator<br>Is data fresh?"}
+    B --> D
     
-    Note over Evaluator,Escrow: Step 3: Atomic SLA Freshness Evaluation
-    Buyer->>Evaluator: resolve(Attestation)
-    Evaluator->>Evaluator: Verify Operator ECDSA signature
-    Evaluator->>Evaluator: Check: ageSeconds = (block.timestamp - sourceTimestamp) <= SLA
-
-    alt Fresh Delivery (ageSeconds <= SLA Window)
-        Evaluator->>Escrow: complete(jobId)
-        Escrow->>Evaluator: Release 100% USDC to provider
-        Evaluator->>Buyer: Deliver verified payload
-        Evaluator->>Treasury: 2% Protocol Fee
-        Evaluator->>Reputation: recordOutcome(sellerId, isSuccess: true)
-        Escrow-->>Indexer: Emits JobCompleted
-    else Stale or Offline Delivery (ageSeconds > SLA Window)
-        Evaluator->>Escrow: reject(jobId)
-        Escrow->>Router: 100% Full Refund of USDC
-        Router->>Buyer: Return 100% capital to Buyer
-        Evaluator->>Reputation: recordOutcome(sellerId, isSuccess: false)
-        Escrow-->>Indexer: Emits JobRejected
-    end
-
-    Note over Indexer,Buyer: Step 4: Real-time Multi-Chain Analytics
-    Indexer->>Indexer: Ingest Monad 10143 + Ethereum 1 logs
-    Indexer-->>Buyer: Serve sub-second GraphQL telemetry & scores
+    D -->|"YES (<= SLA)"| E["Seller Paid (98%) + Reputation Up"]
+    D -->|"NO (Stale / Offline)"| F["Buyer 100% Refunded Automatically"]
 ```
 
-### The 4 Execution Steps
+```
+  [ Buyer Agent ] ──( 1. Locks USDC )──► [ Escrow Contract ]
+                                                 │
+  [ Data Provider ] ──( 2. Delivers Proof )──► [ SLA Evaluator ]
+                                                 │
+                          ┌──────────────────────┴──────────────────────┐
+                          ▼                                             ▼
+                 [ FRESH: <= SLA Window ]                      [ STALE: > SLA Window ]
+               • 98% Paid to Seller                           • 100% Refunded to Buyer
+               • 2% Protocol Fee                              • 0% Fee taken
+               • +1 Reputation Score                          • +1 Missed count
+```
 
-1. **Autonomous Escrow Creation:** The buyer agent executes `createAndFund` on `VerisBuyerRouter.sol`, locking USDC into `ACPCore.sol` with the seller's registered freshness SLA floor.
-2. **Operator Attestation:** The data provider's operator captures the requested live state, canonicalizes the JSON payload, computes `dataHash = keccak256(payload)`, and signs an ECDSA message over `(sellerId, jobId, dataHash, sourceBlockNumber, sourceBlockTimestamp)`.
-3. **Programmatic On-Chain Settlement:** `SlaEvaluator.sol` verifies the cryptographic signature against `SellerRegistry.operatorKey`. If `block.timestamp - sourceBlockTimestamp <= freshnessWindow`, the job is marked `Completed`: 98% of the USDC transfers to the seller, 2% transfers to `VerisTreasury`, and the seller's ERC-8004 reliability score increases. If stale, the job is marked `Rejected`: 100% of the USDC is refunded to the buyer, and the seller's missed-job count is incremented.
-4. **Envio Real-Time Indexing:** Every creation, deposit, evaluation, settlement, fee, and refund is indexed via Envio HyperSync and HyperRPC into a multi-chain GraphQL analytics engine.
+### How It Works in 3 Steps
+1. **Lock:** The buyer agent locks USDC into the escrow contract with a strict freshness requirement (e.g. *“data must be ≤ 3 seconds old”*).
+2. **Deliver:** The seller delivers the data alongside a cryptographic ECDSA attestation stamping the exact source block number and timestamp.
+3. **Settle or Refund:** `SlaEvaluator.sol` compares the timestamp to the current block. If fresh, funds are released to the seller. If stale or offline, the contract automatically refunds 100% of the funds back to the buyer agent.
 
 ---
 
 ## Deployed Smart Contracts (Monad Testnet · Chain ID 10143)
 
-All smart contracts are verified and live on **Monad Testnet**. All contracts were deployed with Foundry using deterministic deployment scripts.
+All smart contracts are verified and live on **Monad Testnet** ([Chain ID 10143](https://testnet.monadscan.com)), deployed deterministically via Foundry:
 
-| Contract | Address | Deployment Tx Hash | Explorer Link |
-| :--- | :--- | :--- | :--- |
-| **`ACPCore`**<br>*(ERC-8183 Autonomous Escrow)* | `0x5898d78653C1f691431A045580c1b1D6aFC28AF9` | [`0xd88961f5...4f6e`](https://testnet.monadscan.com/tx/0xd88961f5a66a11eff06b4770fe6766173fb6b82b2389a44cd914634dfc2b4f6e) | [MonadScan](https://testnet.monadscan.com/address/0x5898d78653C1f691431A045580c1b1D6aFC28AF9) |
-| **`SlaEvaluator`**<br>*(Programmatic SLA Hook & Verifier)* | `0xfc10869E2Bb2E8060DD59C59D0aAB01475bb75A0` | [`0x4c418f1c...517b`](https://testnet.monadscan.com/tx/0x4c418f1c441511a6b1be7e28cdedbeaa2eb67c7890a4327a24aebc2279c2517b) | [MonadScan](https://testnet.monadscan.com/address/0xfc10869E2Bb2E8060DD59C59D0aAB01475bb75A0) |
-| **`VerisBuyerRouter`**<br>*(1-Click Atomic Escrow Router)* | `0x31EBFD1278409FAC32ED8faC1eD49deF9936Fa19` | [`0xaf929ee0...badd`](https://testnet.monadscan.com/tx/0xaf929ee0510983973c32fe01c6bf3ce2e8ae0df3a5733cebf9ea9156cc8ebadd) | [MonadScan](https://testnet.monadscan.com/address/0x31EBFD1278409FAC32ED8faC1eD49deF9936Fa19) |
-| **`SellerRegistry`**<br>*(On-Chain Storefront & Terms)* | `0xE0E71C31890DD9f78b3B7f147046dBF1cc374547` | [`0xcaf68c86...6ada`](https://testnet.monadscan.com/tx/0xcaf68c86425f692e72966b249165c67213ba0375f4bd77b577ea020494616ada) | [MonadScan](https://testnet.monadscan.com/address/0xE0E71C31890DD9f78b3B7f147046dBF1cc374547) |
-| **`ReputationRegistry`**<br>*(ERC-8004 Persistent Trust)* | `0x4b4c76a28a0f5577A80a470C64d64c4dFC5A7183` | [`0x6863371a...cb8e`](https://testnet.monadscan.com/tx/0x6863371a90998b00bca0a9f71b37097555e885199833a0bad0255f10d0c5cb8e) | [MonadScan](https://testnet.monadscan.com/address/0x4b4c76a28a0f5577A80a470C64d64c4dFC5A7183) |
-| **`VerisTreasury`**<br>*(Protocol Fee Treasury)* | `0x402E06B57D2e5c0452492703764a7E24e9772E56` | [`0x86252665...1242`](https://testnet.monadscan.com/tx/0x8625266538ce3b11bf6a2fc9d4b93fd070a966dab487d65d022aef9c43f51242) | [MonadScan](https://testnet.monadscan.com/address/0x402E06B57D2e5c0452492703764a7E24e9772E56) |
-| **Payment Token (USDC)** | `0x534b2f3A21130d7a60830c2Df862319e593943A3` | *Native Monad Testnet USDC* ([Circle Faucet](https://faucet.circle.com)) | [MonadScan](https://testnet.monadscan.com/address/0x534b2f3A21130d7a60830c2Df862319e593943A3) |
-| **Default Operator Signer** | `0x9b3dBb74adf386b2236D34D36E05ECC45ABB38fB` | *Veris Core Operator Key* | [MonadScan](https://testnet.monadscan.com/address/0x9b3dBb74adf386b2236D34D36E05ECC45ABB38fB) |
+* **`ACPCore` (ERC-8183 Autonomous Escrow)**  
+  **Address:** [`0x5898d78653C1f691431A045580c1b1D6aFC28AF9`](https://testnet.monadscan.com/address/0x5898d78653C1f691431A045580c1b1D6aFC28AF9)  
+  Holds buyer funds in escrow during query execution and handles atomic payouts or refunds based on evaluator instructions.  
+  *Deployment Tx:* [`0xd88961f5...4f6e`](https://testnet.monadscan.com/tx/0xd88961f5a66a11eff06b4770fe6766173fb6b82b2389a44cd914634dfc2b4f6e)
 
-*Deployment verification record: [`contracts/deployments/monad-testnet.json`](contracts/deployments/monad-testnet.json)*
+* **`SlaEvaluator` (Programmatic SLA Verifier & Hook)**  
+  **Address:** [`0xfc10869E2Bb2E8060DD59C59D0aAB01475bb75A0`](https://testnet.monadscan.com/address/0xfc10869E2Bb2E8060DD59C59D0aAB01475bb75A0)  
+  The cryptographic verification hook that checks the operator's ECDSA proof against the dataset freshness SLA, splitting 98% to the seller and 2% to protocol treasury on success, or triggering a 100% refund on failure.  
+  *Deployment Tx:* [`0x4c418f1c...517b`](https://testnet.monadscan.com/tx/0x4c418f1c441511a6b1be7e28cdedbeaa2eb67c7890a4327a24aebc2279c2517b)
+
+* **`VerisBuyerRouter` (1-Click Atomic Escrow Router)**  
+  **Address:** [`0x31EBFD1278409FAC32ED8faC1eD49deF9936Fa19`](https://testnet.monadscan.com/address/0x31EBFD1278409FAC32ED8faC1eD49deF9936Fa19)  
+  A 1-click router contract that bundles token allowance, job creation, budgeting, and escrow deposit into a single atomic confirmation for agents and embedded wallets.  
+  *Deployment Tx:* [`0xaf929ee0...badd`](https://testnet.monadscan.com/tx/0xaf929ee0510983973c32fe01c6bf3ce2e8ae0df3a5733cebf9ea9156cc8ebadd)
+
+* **`SellerRegistry` (On-Chain Storefront & Terms)**  
+  **Address:** [`0xE0E71C31890DD9f78b3B7f147046dBF1cc374547`](https://testnet.monadscan.com/address/0xE0E71C31890DD9f78b3B7f147046dBF1cc374547)  
+  The on-chain registry where data providers register their dataset offerings, prices per query in USDC, freshness SLA windows, authorized operator keys, and payout addresses.  
+  *Deployment Tx:* [`0xcaf68c86...6ada`](https://testnet.monadscan.com/tx/0xcaf68c86425f692e72966b249165c67213ba0375f4bd77b577ea020494616ada)
+
+* **`ReputationRegistry` (ERC-8004 Persistent Trust)**  
+  **Address:** [`0x4b4c76a28a0f5577A80a470C64d64c4dFC5A7183`](https://testnet.monadscan.com/address/0x4b4c76a28a0f5577A80a470C64d64c4dFC5A7183)  
+  Tracks persistent reliability scores (`slaMetCount`, `slaMissedCount`, `reliabilityBps`) updated programmatically by `SlaEvaluator` on each settled job.  
+  *Deployment Tx:* [`0x6863371a...cb8e`](https://testnet.monadscan.com/tx/0x6863371a90998b00bca0a9f71b37097555e885199833a0bad0255f10d0c5cb8e)
+
+* **`VerisTreasury` (Protocol Fee Treasury)**  
+  **Address:** [`0x402E06B57D2e5c0452492703764a7E24e9772E56`](https://testnet.monadscan.com/address/0x402E06B57D2e5c0452492703764a7E24e9772E56)  
+  Protocol fee vault collecting 2% per successful settlement, protected by destination address allowlists, per-transaction caps, and daily withdrawal limits.  
+  *Deployment Tx:* [`0x86252665...1242`](https://testnet.monadscan.com/tx/0x8625266538ce3b11bf6a2fc9d4b93fd070a966dab487d65d022aef9c43f51242)
+
+* **Payment Token (USDC)**  
+  **Address:** [`0x534b2f3A21130d7a60830c2Df862319e593943A3`](https://testnet.monadscan.com/address/0x534b2f3A21130d7a60830c2Df862319e593943A3)  
+  Native testnet USDC used for all escrow budgets and settlement payouts. Get free testnet USDC from the [Circle Faucet](https://faucet.circle.com).
+
+* **Default Operator Signer**  
+  **Address:** [`0x9b3dBb74adf386b2236D34D36E05ECC45ABB38fB`](https://testnet.monadscan.com/address/0x9b3dBb74adf386b2236D34D36E05ECC45ABB38fB)  
+  The core operator public key that ECDSA-signs block freshness proofs for default Veris feeds.
 
 > [!TIP]
 > **Getting Testnet Tokens on Monad (Chain ID 10143)**
