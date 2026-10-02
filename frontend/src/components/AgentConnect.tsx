@@ -67,7 +67,7 @@ if result.is_fresh:
 else:
     print("SLA missed. 100% refund confirmed in escrow contract.")`,
     curl: `# Query live Veris escrow relayer endpoint on Vercel
-curl -X POST https://veris-monad.vercel.app/api/purchase \\
+curl -X POST https://veris-protocol.vercel.app/api/purchase \\
   -H "Content-Type: application/json" \\
   -d '{
     "datasetName": "Kuru CLOB Order Book Depth",

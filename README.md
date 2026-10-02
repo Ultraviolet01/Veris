@@ -8,7 +8,7 @@ Sellers list live financial and state feeds with a price per query and a cryptog
 
 | Resource | Link |
 | :--- | :--- |
-| **Live Web Application** | [veris-monad.vercel.app](https://veris-monad.vercel.app) |
+| **Live Web Application** | [veris-protocol.vercel.app](https://veris-protocol.vercel.app/) |
 | **GitHub Repository** | [github.com/Ultraviolet01/Veris](https://github.com/Ultraviolet01/Veris) |
 | **Monad Testnet Explorer** | [testnet.monadscan.com](https://testnet.monadscan.com) |
 | **Monad Testnet Faucet (MON Gas)** | [testnet.monad.xyz](https://testnet.monad.xyz) |
