@@ -11,6 +11,8 @@ Sellers list live financial and state feeds with a price per query and a cryptog
 | **Live Web Application** | [veris-monad.vercel.app](https://veris-monad.vercel.app) |
 | **GitHub Repository** | [github.com/Ultraviolet01/Veris](https://github.com/Ultraviolet01/Veris) |
 | **Monad Testnet Explorer** | [testnet.monadscan.com](https://testnet.monadscan.com) |
+| **Monad Testnet Faucet (MON Gas)** | [testnet.monad.xyz](https://testnet.monad.xyz) |
+| **Circle Faucet (Monad Testnet USDC)** | [faucet.circle.com](https://faucet.circle.com) |
 | **Envio HyperSync Engine** | [monad-testnet.hypersync.xyz](https://monad-testnet.hypersync.xyz) |
 | **Dynamic Embedded Wallets** | [docs.dynamic.xyz](https://docs.dynamic.xyz) |
 | **Model Context Protocol (MCP)** | [`mcp/README.md`](mcp/README.md) |
@@ -109,10 +111,15 @@ All smart contracts are verified and live on **Monad Testnet**. All contracts we
 | **`SellerRegistry`**<br>*(On-Chain Storefront & Terms)* | `0xE0E71C31890DD9f78b3B7f147046dBF1cc374547` | [`0xcaf68c86...6ada`](https://testnet.monadscan.com/tx/0xcaf68c86425f692e72966b249165c67213ba0375f4bd77b577ea020494616ada) | [MonadScan](https://testnet.monadscan.com/address/0xE0E71C31890DD9f78b3B7f147046dBF1cc374547) |
 | **`ReputationRegistry`**<br>*(ERC-8004 Persistent Trust)* | `0x4b4c76a28a0f5577A80a470C64d64c4dFC5A7183` | [`0x6863371a...cb8e`](https://testnet.monadscan.com/tx/0x6863371a90998b00bca0a9f71b37097555e885199833a0bad0255f10d0c5cb8e) | [MonadScan](https://testnet.monadscan.com/address/0x4b4c76a28a0f5577A80a470C64d64c4dFC5A7183) |
 | **`VerisTreasury`**<br>*(Protocol Fee Treasury)* | `0x402E06B57D2e5c0452492703764a7E24e9772E56` | [`0x86252665...1242`](https://testnet.monadscan.com/tx/0x8625266538ce3b11bf6a2fc9d4b93fd070a966dab487d65d022aef9c43f51242) | [MonadScan](https://testnet.monadscan.com/address/0x402E06B57D2e5c0452492703764a7E24e9772E56) |
-| **Payment Token (USDC)** | `0x534b2f3A21130d7a60830c2Df862319e593943A3` | *Native Monad Testnet USDC* | [MonadScan](https://testnet.monadscan.com/address/0x534b2f3A21130d7a60830c2Df862319e593943A3) |
+| **Payment Token (USDC)** | `0x534b2f3A21130d7a60830c2Df862319e593943A3` | *Native Monad Testnet USDC* ([Circle Faucet](https://faucet.circle.com)) | [MonadScan](https://testnet.monadscan.com/address/0x534b2f3A21130d7a60830c2Df862319e593943A3) |
 | **Default Operator Signer** | `0x9b3dBb74adf386b2236D34D36E05ECC45ABB38fB` | *Veris Core Operator Key* | [MonadScan](https://testnet.monadscan.com/address/0x9b3dBb74adf386b2236D34D36E05ECC45ABB38fB) |
 
 *Deployment verification record: [`contracts/deployments/monad-testnet.json`](contracts/deployments/monad-testnet.json)*
+
+> [!TIP]
+> **Getting Testnet Tokens on Monad (Chain ID 10143)**
+> - **Monad Testnet Gas (MON):** Request free native testnet MON from the official [Monad Testnet Faucet](https://testnet.monad.xyz).
+> - **Escrow Payment Token (USDC):** Request official testnet USDC on Monad from the [Circle Faucet](https://faucet.circle.com) (select *Monad Testnet* from the network dropdown).
 
 ---
 
@@ -421,6 +428,9 @@ npm install
 npm run dev
 ```
 Open `http://localhost:5173` to test:
+* **Claim Testnet Tokens:**
+  - Get native **MON** (for gas) at [testnet.monad.xyz](https://testnet.monad.xyz)
+  - Get testnet **USDC** (for escrow payments) at [faucet.circle.com](https://faucet.circle.com) *(choose "Monad Testnet")*
 * **Dynamic Embedded Wallets:** Sign in with Google to create an embedded EVM wallet.
 * **1-Click Escrow Purchasing:** Execute data purchases on Monad Testnet.
 * **Reputation Hub:** Live ERC-8004 reliability rankings.
